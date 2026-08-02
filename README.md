@@ -2,7 +2,7 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![HIPAA Compliant](https://img.shields.io/badge/Compliance-HIPAA_Ready-success.svg)
-![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8.svg)
+![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8.svg)
 ![Python Version](https://img.shields.io/badge/Python-3.11+-3776AB.svg)
 
 **PhotonicOps** is a 100% open-source, edge-deployed, and completely air-gapped telemetry ingestion and agentic hardware triage engine for silicon photonic biosensors. 

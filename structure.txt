@@ -3,7 +3,9 @@ PhotonicOps/
 │   └── workflows/
 │       ├── ai-review.yml             # Automated AI PR code reviewer
 │       └── evals.yml                 # CI run for prompt evaluation suite
-├── .cursorrules                      # System constraints for AI coding agents
+├── .agents/                          # Antigravity AI Customizations
+│   ├── AGENTS.md                     # System constraints for AI coding agents
+│   └── skills/                       # AI Persona skill definitions
 ├── docker-compose.yml                # Single-command stack launcher
 ├── README.md                         # Main repository architecture doc & guide
 ├── docs/
