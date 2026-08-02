@@ -35,6 +35,28 @@ The system is built on a high-throughput, low-latency microservices architecture
 
 ---
 
+## 📊 Telemetry Data Model & Mock Sensor
+
+In silicon photonic biosensors (such as microring resonators), the primary signal measured is the **resonance wavelength shift (Δλ)**, typically measured in picometers (pm). As target molecules bind to the sensor's surface, the refractive index changes, causing a measurable shift in the wavelength.
+
+The **Mock Sensor** (`scripts/simulate_sensor.go`) blasts synthetic gRPC `OpticalFrame` messages to the ingestion engine at 10,000 Hz. The payload structure is defined in `proto/telemetry.proto`:
+
+```protobuf
+message OpticalFrame {
+    int64 timestamp = 1;         // Unix timestamp in nanoseconds
+    string sensor_id = 2;        // Unique identifier (e.g., "ring-01")
+    double wavelength_shift = 3; // Shift in picometers (Δλ)
+}
+```
+
+To accurately test the Digital Signal Processing (DSP) and AI Agent layers, the mock sensor injects realistic physical noise and anomalies into the `wavelength_shift`:
+1. **White Noise:** System and laser noise (Gaussian, e.g., σ = 0.5 pm).
+2. **Thermal Drift:** Low-frequency, slow baseline wandering caused by temperature fluctuations (e.g., ±5 pm over an hour).
+3. **Bubble Spikes:** High-frequency, sudden, massive spikes (e.g., +500 pm for 1 second) simulating air bubbles passing over the microfluidic channel.
+
+The Python DSP pipeline is responsible for filtering out the thermal drift and detecting the bubble spikes, which subsequently triggers the AI Agent to issue a hardware remediation command (e.g., "increase microfluidic pump pressure to clear the bubble").
+
+---
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -54,4 +76,5 @@ cd PhotonicOps
 docker-compose up -d
 
 # 3. Start the mock sensor stream (generates 10kHz gRPC telemetry)
+go run services/ingestion-go/cmd/server/main.go
 go run scripts/simulate_sensor.go

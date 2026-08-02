@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package telemetry;
+
+option go_package = "github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb";
+
+message OpticalFrame {
+    int64 timestamp = 1;         // Unix timestamp in nanoseconds
+    string sensor_id = 2;        // Unique identifier (e.g., "ring-01")
+    double wavelength_shift = 3; // Shift in picometers (Δλ)
+}
+
+message StreamResponse {
+    bool success = 1;
+}
+
+service TelemetryService {
+    // StreamTelemetry pushes optical sensor data to the server in real-time.
+    rpc StreamTelemetry(stream OpticalFrame) returns (StreamResponse);
+}

@@ -20,19 +20,19 @@ This document outlines the step-by-step progression plan for building PhotonicOp
 
 ---
 
-## [ ] Phase 1: The Data Contract & Ingestion Engine (Go)
+## [x] Phase 1: The Data Contract & Ingestion Engine (Go)
 **Goal:** Build the high-throughput backbone capable of receiving 10,000 samples/sec with sub-millisecond allocation latency.
 
-* [ ] **Task 1.1: Protobuf Contract**
+* [x] **Task 1.1: Protobuf Contract**
   * Define `proto/telemetry.proto` detailing the raw optical wavelength shift payload.
   * *AI Persona:* `@go-architect`
-* [ ] **Task 1.2: The Mock Sensor**
+* [x] **Task 1.2: The Mock Sensor**
   * Build `scripts/simulate_sensor.go` to blast gRPC traffic at 10kHz, injecting synthetic thermal drift and bubble spikes.
-* [ ] **Task 1.3: The Go gRPC Server & Worker Pool**
+* [x] **Task 1.3: The Go gRPC Server & Worker Pool**
   * Implement the gRPC listener and channel-based worker pool in `services/ingestion-go/`.
   * *Constraint:* Strict zero-allocation. Use `sync.Pool` for byte buffers and implement `ringbuffer.go`.
   * *AI Persona:* `@go-architect`
-* [ ] **Phase Gate:** The Go server successfully ingests 10,000 req/sec from the mock script. Go profiling (`pprof`) confirms zero significant Garbage Collection (GC) pauses.
+* [x] **Phase Gate:** The Go server successfully ingests 10,000 req/sec from the mock script. Go profiling (`pprof`) confirms zero significant Garbage Collection (GC) pauses.
 
 ---
 

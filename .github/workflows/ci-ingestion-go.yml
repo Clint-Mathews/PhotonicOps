@@ -1,0 +1,137 @@
+name: CI — ingestion-go
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "services/ingestion-go/**"
+      - "proto/**"
+      - "go.work"
+      - "go.work.sum"
+      - ".github/workflows/ci-ingestion-go.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "services/ingestion-go/**"
+      - "proto/**"
+      - "go.work"
+      - "go.work.sum"
+      - ".github/workflows/ci-ingestion-go.yml"
+
+# Cancel in-progress runs for the same branch/PR to avoid redundant work.
+concurrency:
+  group: ci-ingestion-go-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test (Go ${{ matrix.go-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+      matrix:
+        # Pinned to match the go directive in go.work.
+        go-version: ["1.26.4"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          # Cache module downloads keyed on go.work.sum for workspace-aware caching.
+          cache: true
+          cache-dependency-path: go.work.sum
+
+      # Verify that the module graph is consistent. This catches missing or
+      # extraneous entries in go.mod/go.sum before any compilation occurs.
+      - name: Verify module integrity
+        working-directory: services/ingestion-go
+        run: go mod verify
+
+      - name: go vet
+        working-directory: services/ingestion-go
+        run: go vet ./...
+
+      - name: Run tests with race detector and coverage
+        working-directory: services/ingestion-go
+        run: |
+          go test \
+            -race \
+            -covermode=atomic \
+            -coverprofile=coverage.out \
+            ./...
+
+      # Emit a human-readable summary of per-package coverage to the job log
+      # and to the GitHub Actions step summary for quick visibility.
+      - name: Report coverage summary
+        working-directory: services/ingestion-go
+        run: |
+          echo "## Test Coverage — ingestion-go" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          go tool cover -func=coverage.out | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # Upload the raw coverage profile so it is available to downstream steps
+      # (e.g., Codecov) and for local inspection via the Actions UI.
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ingestion-go-go${{ matrix.go-version }}
+          path: services/ingestion-go/coverage.out
+          retention-days: 14
+
+      # Publish coverage to Codecov. The token is injected from repository
+      # secrets; set CODECOV_TOKEN in Settings → Secrets → Actions.
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: services/ingestion-go/coverage.out
+          flags: ingestion-go
+          name: ingestion-go-go${{ matrix.go-version }}
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  build-binary:
+    name: Build Binary
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.4"
+          cache: true
+          cache-dependency-path: go.work.sum
+
+      # Produce a statically linked binary. CGO is disabled because the service
+      # has no C dependencies and static binaries are required for minimal
+      # distroless/scratch container images.
+      - name: Build ingestion server
+        working-directory: services/ingestion-go
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: amd64
+          GOOS: linux
+        run: |
+          go build \
+            -trimpath \
+            -ldflags="-s -w -X main.Version=${{ github.sha }}" \
+            -o ingestion-server \
+            ./cmd/server
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestion-server-linux-amd64
+          path: services/ingestion-go/ingestion-server
+          retention-days: 7
