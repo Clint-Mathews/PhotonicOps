@@ -1,0 +1,58 @@
+PhotonicOps/
+├── .github/
+│   └── workflows/
+│       ├── ai-review.yml             # Automated AI PR code reviewer
+│       └── evals.yml                 # CI run for prompt evaluation suite
+├── .cursorrules                      # System constraints for AI coding agents
+├── docker-compose.yml                # Single-command stack launcher
+├── README.md                         # Main repository architecture doc & guide
+├── docs/
+│   ├── REQUIREMENTS.md               # Software Requirements Specification
+│   └── ADR.md                        # Architecture Decision Records
+├── proto/
+│   └── telemetry.proto               # Protobuf definition for gRPC streaming
+│
+├── services/
+│   ├── ingestion-go/                 # High-throughput Go Ingestion Engine
+│   │   ├── cmd/
+│   │   │   └── server/
+│   │   │       └── main.go           
+│   │   ├── internal/
+│   │   │   ├── buffer/
+│   │   │   │   └── ringbuffer.go     # Zero-alloc ring buffer implementation
+│   │   │   ├── grpc/
+│   │   │   │   └── stream.go         # gRPC streaming server implementation
+│   │   │   └── worker/
+│   │   │       └── pool.go           # Goroutine worker pool & channel manager
+│   │   ├── go.mod
+│   │   └── Dockerfile
+│   │
+│   ├── dsp-agent-python/             # Python DSP Engine & LLM Triage Agent
+│   │   ├── src/
+│   │   │   ├── dsp/
+│   │   │   │   ├── kalman.py         # 1D Kalman filter implementation
+│   │   │   │   └── spike_detector.py # Step-anomaly & bubble detection logic
+│   │   │   ├── agent/
+│   │   │   │   ├── schema.py         # Pydantic schemas for hardware actions
+│   │   │   │   ├── triage.py         # Agentic LLM triage executor
+│   │   │   │   └── tracer.py         # Langfuse tracing setup
+│   │   │   └── main.py               
+│   │   ├── evals/
+│   │   │   ├── test_cases.json       # Synthetic noisy signal test cases
+│   │   │   └── run_evals.py          # Prompt evaluation regression suite
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   │
+│   └── dashboard-ui/                 # React + TypeScript Frontend
+│       ├── src/
+│       │   ├── components/
+│       │   │   ├── SignalChart.tsx   
+│       │   │   ├── IncidentLog.tsx   
+│       │   │   └── MetricsPanel.tsx  
+│       │   ├── App.tsx
+│       │   └── main.tsx
+│       ├── package.json
+│       └── Dockerfile
+│
+└── scripts/
+    └── simulate_sensor.go            # CLI tool generating mock 10kHz sensor streams

@@ -1,0 +1,93 @@
+# ==============================================================================
+# OS & Editor
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==============================================================================
+# Go (Ingestion Engine)
+# ==============================================================================
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+# Test binary
+*.test
+# Output of the go coverage tool
+*.out
+# Compiled Go binaries from the project
+services/ingestion-go/server_bin
+scripts/simulate_sensor_bin
+
+# ==============================================================================
+# Python (DSP Engine & LLM Agent)
+# ==============================================================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# MLOps & Evals
+.promptfoo/
+promptfoo-coverage/
+evals/*.log
+
+# ==============================================================================
+# Node.js & React (Dashboard UI)
+# ==============================================================================
+node_modules/
+dist/
+build/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.vite/
+
+# ==============================================================================
+# Docker & Infrastructure Volumes
+# ==============================================================================
+# Local environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker volume mounts (to prevent committing Prometheus, Langfuse, or DB data)
+.data/
+volumes/
+prometheus_data/
+grafana_data/
+langfuse_data/
+
+# ==============================================================================
+# Local LLM & Telemetry Logs
+# ==============================================================================
+# Ignore local GGUF/Safetensors weights if downloaded directly into project
+*.gguf
+*.bin
+*.safetensors
+
+# Ignore high-throughput local telemetry logs
+*.log
+logs/
