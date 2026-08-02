@@ -1,0 +1,60 @@
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    platform: linux/arm64
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    platform: linux/arm64
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    platform: linux/arm64
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  langfuse:
+    image: langfuse/langfuse:2
+    platform: linux/arm64
+    container_name: langfuse
+    depends_on:
+      - postgres
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - SALT=${SALT}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - TELEMETRY_ENABLED=${TELEMETRY_ENABLED}
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    platform: linux/arm64
+    container_name: ollama-photonicops
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ollama_data:

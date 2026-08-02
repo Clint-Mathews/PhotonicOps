@@ -8,15 +8,15 @@ This document outlines the step-by-step progression plan for building PhotonicOp
 
 ---
 
-## [ ] Phase 0: The Harness & Environment
+## [x] Phase 0: The Harness & Environment
 **Goal:** Establish the strict AI coding guardrails and local infrastructure required for an Apple Silicon/ARM64 environment before writing any application code.
 
 * [x] **Task 0.1:** Commit `.agents/AGENTS.md` and the `.agents/skills/*/SKILL.md` developer personas (`@go-architect`, `@dsp-math`, `@mlops-agent`).
-* [ ] **Task 0.2:** Scaffold the foundational `docker-compose.yml`.
+* [x] **Task 0.2:** Scaffold the foundational `docker-compose.yml`.
   * *Constraint:* Must explicitly define `platform: linux/arm64` for all services.
   * *Components:* Prometheus, Grafana, Langfuse (Postgres dependency), and Ollama.
-* [ ] **Task 0.3:** Pull the local LLM weights into the Ollama volume (`docker exec -it ollama ollama run llama3.1:8b`).
-* [ ] **Phase Gate:** You can run `docker-compose up -d` and successfully hit the Ollama local API and Langfuse UI at `localhost` with zero x86 Rosetta emulation.
+* [x] **Task 0.3:** Pull the local LLM weights into the Ollama volume (`docker exec -it ollama ollama run llama3.1:8b`).
+* [x] **Phase Gate:** You can run `docker-compose up -d` and successfully hit the Ollama local API and Langfuse UI at `localhost` with zero x86 Rosetta emulation.
 
 ---
 

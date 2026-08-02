@@ -19,6 +19,7 @@ You are a Principal Software Engineer and System Architect assisting in the deve
 - **Frontend:** React, TypeScript, Tailwind CSS, Chart.js (WebSocket driven).
 
 ## 4. Coding Standards ("Antigravity" Workflow)
+- **Professional Tone & Documentation:** Do not use emojis, conversational filler, or "agentic fluff" in code or comments. Provide clear, technical descriptions and detailed docstrings/comments that explain the "why" and "how" of the implementation.
 - **No Boilerplate Placeholders:** Do not write `// ... implementation here ...`. Write complete, production-ready code.
 - **Type Safety:** Enforce strict type hints in Python and robust interface contracts in Go.
 - **Error Handling:** Fail fast and log verbosely. In Go, wrap errors with context. In Python, raise specific custom Exceptions.
