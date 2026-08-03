@@ -5,9 +5,11 @@ import (
 	"io"
 	"testing"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/buffer"
+	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/dsp"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/worker"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb"
 )
@@ -47,10 +49,29 @@ func (m *mockStream) Context() context.Context     { return context.Background()
 func (m *mockStream) SendMsg(m_ interface{}) error { return nil }
 func (m *mockStream) RecvMsg(m_ interface{}) error { return nil }
 
+// noopDSPClient is a pb.DSPServiceClient that discards all batches. It prevents
+// the stream test's worker goroutines from panicking on forwarder.Push when
+// frames reach the worker before the test exits.
+type noopDSPClient struct{}
+
+type noopStream struct{ grpc.ClientStream }
+
+func (s *noopStream) Send(_ *pb.FrameBatch) error      { return nil }
+func (s *noopStream) CloseAndRecv() (*pb.DSPAck, error) {
+	return &pb.DSPAck{Accpeted: true}, nil
+}
+
+func (c *noopDSPClient) StreamBatches(_ context.Context, _ ...grpc.CallOption) (pb.DSPService_StreamBatchesClient, error) {
+	return &noopStream{}, nil
+}
+
 func TestServer_StreamTelemetry(t *testing.T) {
-	// 1. Initialize the Zero-Allocation components
+	// 1. Initialize the Zero-Allocation components.
+	// newForwarderWithClient injects a no-op DSP client so worker goroutines
+	// can call Push without panicking and without requiring a live Unix socket.
 	ring := buffer.NewRingBuffer(10)
-	pool := worker.NewFramePool(2, 10)
+	forwarder := dsp.NewForwarderWithClient(&noopDSPClient{})
+	pool := worker.NewFramePool(2, 10, forwarder)
 
 	server := &Server{
 		Ring:   ring,

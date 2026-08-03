@@ -18,3 +18,25 @@ service TelemetryService {
     // StreamTelemetry pushes optical sensor data to the server in real-time.
     rpc StreamTelemetry(stream OpticalFrame) returns (StreamResponse);
 }
+
+// FrameBatch groups OpticalFrames from a single 100ms ingestion window
+// window_duration_ms carries the actual elapsed time (may vary slightly from the nominal 100ms target due to scheduling jitter),
+// so the DSP pipeline can compute accurate dλ/dt derivatives without assuming a fixed sample rate.
+message FrameBatch {
+    repeated OpticalFrame frames              = 1;
+    string                sensor_id           = 2;  // All frames in this batch share one sensor.
+    int64                 window_start_ns     = 3;  // Unix ns timestamp of the first frame.
+    double                window_duration_ms  = 4;  // Actual elapsed time in milliseconds.
+}
+
+message DSPAck {
+    bool accpeted = 1;
+    string rejection_reason = 2; // Non-empty only when accepted == false.
+}
+
+service DSPService {
+    // StreamBatches pushes consecutive FrameBatches to the Python DSP process.
+    // The stream runs from the lifetime of the DSP process; the Go side
+    // reconnects automatically if the Python process restarts.
+    rpc StreamBatches(stream FrameBatch) returns (DSPAck);
+}

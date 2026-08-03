@@ -39,7 +39,7 @@ This document outlines the step-by-step progression plan for building PhotonicOp
 ## [ ] Phase 2: Digital Signal Processing Pipeline (Python)
 **Goal:** Extract clean signals from the noisy gRPC stream using vector math.
 
-* [ ] **Task 2.0: Go → Python IPC Contract**
+* [x] **Task 2.0: Go → Python IPC Contract**
   * Implement the Unix-domain-socket local gRPC transport decided in ADR-007, including the frame-batching wrapper message added to `proto/telemetry.proto`. This blocks every other Phase 2 task — `src/dsp/kalman.py` cannot be written against an undefined input contract.
   * *AI Persona:* `@go-architect` (Go side), `@dsp-math` (Python client side)
 * [ ] **Task 2.1: DSP Environment Setup**

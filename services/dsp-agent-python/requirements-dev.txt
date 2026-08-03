@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8.0.0
+pytest-benchmark>=4.0.0    # Enforces <10ms per-frame constraint (NFR-1.2).
+mypy>=1.10.0

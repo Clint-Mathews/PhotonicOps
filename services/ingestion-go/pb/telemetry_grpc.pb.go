@@ -114,3 +114,104 @@ var TelemetryService_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "telemetry.proto",
 }
+
+const (
+	DSPService_StreamBatches_FullMethodName = "/telemetry.DSPService/StreamBatches"
+)
+
+// DSPServiceClient is the client API for DSPService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type DSPServiceClient interface {
+	// StreamBatches pushes consecutive FrameBatches to the Python DSP process.
+	// The stream runs from the lifetime of the DSP process; the Go side
+	// reconnects automatically if the Python process restarts.
+	StreamBatches(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FrameBatch, DSPAck], error)
+}
+
+type dSPServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDSPServiceClient(cc grpc.ClientConnInterface) DSPServiceClient {
+	return &dSPServiceClient{cc}
+}
+
+func (c *dSPServiceClient) StreamBatches(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FrameBatch, DSPAck], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &DSPService_ServiceDesc.Streams[0], DSPService_StreamBatches_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FrameBatch, DSPAck]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DSPService_StreamBatchesClient = grpc.ClientStreamingClient[FrameBatch, DSPAck]
+
+// DSPServiceServer is the server API for DSPService service.
+// All implementations must embed UnimplementedDSPServiceServer
+// for forward compatibility.
+type DSPServiceServer interface {
+	// StreamBatches pushes consecutive FrameBatches to the Python DSP process.
+	// The stream runs from the lifetime of the DSP process; the Go side
+	// reconnects automatically if the Python process restarts.
+	StreamBatches(grpc.ClientStreamingServer[FrameBatch, DSPAck]) error
+	mustEmbedUnimplementedDSPServiceServer()
+}
+
+// UnimplementedDSPServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDSPServiceServer struct{}
+
+func (UnimplementedDSPServiceServer) StreamBatches(grpc.ClientStreamingServer[FrameBatch, DSPAck]) error {
+	return status.Error(codes.Unimplemented, "method StreamBatches not implemented")
+}
+func (UnimplementedDSPServiceServer) mustEmbedUnimplementedDSPServiceServer() {}
+func (UnimplementedDSPServiceServer) testEmbeddedByValue()                    {}
+
+// UnsafeDSPServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DSPServiceServer will
+// result in compilation errors.
+type UnsafeDSPServiceServer interface {
+	mustEmbedUnimplementedDSPServiceServer()
+}
+
+func RegisterDSPServiceServer(s grpc.ServiceRegistrar, srv DSPServiceServer) {
+	// If the following call panics, it indicates UnimplementedDSPServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DSPService_ServiceDesc, srv)
+}
+
+func _DSPService_StreamBatches_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(DSPServiceServer).StreamBatches(&grpc.GenericServerStream[FrameBatch, DSPAck]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DSPService_StreamBatchesServer = grpc.ClientStreamingServer[FrameBatch, DSPAck]
+
+// DSPService_ServiceDesc is the grpc.ServiceDesc for DSPService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DSPService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "telemetry.DSPService",
+	HandlerType: (*DSPServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamBatches",
+			Handler:       _DSPService_StreamBatches_Handler,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "telemetry.proto",
+}

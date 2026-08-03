@@ -1,10 +1,11 @@
-name: CI — ingestion-go
+name: CI — PhotonicOps
 
 on:
   push:
     branches: [main, develop]
     paths:
       - "services/ingestion-go/**"
+      - "services/dsp-agent-python/**"
       - "proto/**"
       - "go.work"
       - "go.work.sum"
@@ -13,6 +14,7 @@ on:
     branches: [main, develop]
     paths:
       - "services/ingestion-go/**"
+      - "services/dsp-agent-python/**"
       - "proto/**"
       - "go.work"
       - "go.work.sum"
@@ -20,7 +22,7 @@ on:
 
 # Cancel in-progress runs for the same branch/PR to avoid redundant work.
 concurrency:
-  group: ci-ingestion-go-${{ github.ref }}
+  group: ci-photonicops-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -135,3 +137,53 @@ jobs:
           name: ingestion-server-linux-amd64
           path: services/ingestion-go/ingestion-server
           retention-days: 7
+
+  test-python:
+    name: Test (Python DSP)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        working-directory: services/dsp-agent-python
+        run: |
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Run Pytest
+        working-directory: services/dsp-agent-python
+        run: |
+          pytest tests/ -v
+
+      - name: Verify Precision Gate (NFR-5.2)
+        working-directory: services/dsp-agent-python
+        run: |
+          pytest tests/test_spike_detector.py::test_precision_against_synthetic_spikes -v
+
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [build-and-test, test-python]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ingestion-go Docker image
+        working-directory: services/ingestion-go
+        run: docker buildx build --platform linux/arm64 -t photonicops/ingestion-go:test .
+
+      - name: Build dsp-agent-python Docker image
+        working-directory: services/dsp-agent-python
+        run: docker buildx build --platform linux/arm64 -t photonicops/dsp-agent-python:test .

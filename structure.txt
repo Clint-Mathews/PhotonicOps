@@ -29,32 +29,44 @@ PhotonicOps/
 │   │   ├── go.mod
 │   │   └── Dockerfile
 │   │
-│   ├── dsp-agent-python/             # Python DSP Engine & LLM Triage Agent
-│   │   ├── src/
-│   │   │   ├── dsp/
-│   │   │   │   ├── kalman.py         # 1D Kalman filter implementation
-│   │   │   │   └── spike_detector.py # Step-anomaly & bubble detection logic
-│   │   │   ├── agent/
-│   │   │   │   ├── schema.py         # Pydantic schemas for hardware actions
-│   │   │   │   ├── triage.py         # Agentic LLM triage executor
-│   │   │   │   └── tracer.py         # Langfuse tracing setup
-│   │   │   └── main.py               
-│   │   ├── evals/
-│   │   │   ├── test_cases.json       # Synthetic noisy signal test cases
-│   │   │   └── run_evals.py          # Prompt evaluation regression suite
-│   │   ├── requirements.txt
-│   │   └── Dockerfile
 │   │
 │   └── dashboard-ui/                 # React + TypeScript Frontend
-│       ├── src/
-│       │   ├── components/
-│       │   │   ├── SignalChart.tsx   
-│       │   │   ├── IncidentLog.tsx   
-│       │   │   └── MetricsPanel.tsx  
-│       │   ├── App.tsx
-│       │   └── main.tsx
-│       ├── package.json
-│       └── Dockerfile
-│
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   │   ├── SignalChart.tsx   
+│   │   │   │   ├── IncidentLog.tsx   
+│   │   │   │   └── MetricsPanel.tsx  
+│   │   │   ├── App.tsx
+│   │   │   └── main.tsx
+│   │   ├── package.json
+│   │   └── Dockerfile
+│   └── dsp-agent-python/         ← the Python service root
+        ├── pyproject.toml        ← project metadata & tool config
+        ├── requirements.txt      ← production dependencies
+        ├── requirements-dev.txt  ← test/lint dependencies
+        ├── Dockerfile
+        ├── src/
+        │   ├── ipc/
+        │   │   ├── __init__.py
+        │   │   └── client.py     # Task 2.0 — Unix socket gRPC server
+        │   ├── dsp/
+        │   │   ├── __init__.py
+        │   │   ├── exceptions.py
+        │   │   ├── kalman.py     # Task 2.2
+        │   │   ├── spike_detector.py  # Task 2.3
+        │   │   ├── biomarker.py  # Task 2.4
+        │   │   └── pipeline.py   # Composition root (wires all three)
+        │   ├── agent/            # Phase 3 — leave empty for now
+        │   │   └── __init__.py
+        │   └── main.py           # Process entry point
+        ├── pb/                   # Auto-generated Python proto stubs
+        │   ├── __init__.py
+        │   ├── telemetry_pb2.py
+        │   └── telemetry_pb2_grpc.py
+        └── tests/
+            ├── __init__.py
+            ├── test_kalman.py
+            ├── test_spike_detector.py
+            └── test_biomarker.py
 └── scripts/
     └── simulate_sensor.go            # CLI tool generating mock 10kHz sensor streams

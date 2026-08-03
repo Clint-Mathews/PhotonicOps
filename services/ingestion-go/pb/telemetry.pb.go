@@ -125,6 +125,129 @@ func (x *StreamResponse) GetSuccess() bool {
 	return false
 }
 
+// FrameBatch groups OpticalFrames from a single 100ms ingestion window
+// window_duration_ms carries the actual elapsed time (may vary slightly from the nominal 100ms target due to scheduling jitter),
+// so the DSP pipeline cab compute accurate dλ/dt derivatives without assuming a fixed sample rate.
+type FrameBatch struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Frames           []*OpticalFrame        `protobuf:"bytes,1,rep,name=frames,proto3" json:"frames,omitempty"`
+	SensorId         string                 `protobuf:"bytes,2,opt,name=sensor_id,json=sensorId,proto3" json:"sensor_id,omitempty"`                             // All frames in this batch share one sensor.
+	WindowStartNs    int64                  `protobuf:"varint,3,opt,name=window_start_ns,json=windowStartNs,proto3" json:"window_start_ns,omitempty"`           // Unix ns timestamp of the first frame.
+	WindowDurationMs float64                `protobuf:"fixed64,4,opt,name=window_duration_ms,json=windowDurationMs,proto3" json:"window_duration_ms,omitempty"` // Actual elapsed time in milliseconds.
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *FrameBatch) Reset() {
+	*x = FrameBatch{}
+	mi := &file_telemetry_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FrameBatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FrameBatch) ProtoMessage() {}
+
+func (x *FrameBatch) ProtoReflect() protoreflect.Message {
+	mi := &file_telemetry_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FrameBatch.ProtoReflect.Descriptor instead.
+func (*FrameBatch) Descriptor() ([]byte, []int) {
+	return file_telemetry_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *FrameBatch) GetFrames() []*OpticalFrame {
+	if x != nil {
+		return x.Frames
+	}
+	return nil
+}
+
+func (x *FrameBatch) GetSensorId() string {
+	if x != nil {
+		return x.SensorId
+	}
+	return ""
+}
+
+func (x *FrameBatch) GetWindowStartNs() int64 {
+	if x != nil {
+		return x.WindowStartNs
+	}
+	return 0
+}
+
+func (x *FrameBatch) GetWindowDurationMs() float64 {
+	if x != nil {
+		return x.WindowDurationMs
+	}
+	return 0
+}
+
+type DSPAck struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Accpeted        bool                   `protobuf:"varint,1,opt,name=accpeted,proto3" json:"accpeted,omitempty"`
+	RejectionReason string                 `protobuf:"bytes,2,opt,name=rejection_reason,json=rejectionReason,proto3" json:"rejection_reason,omitempty"` // Non-empty only when accepted == false.
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *DSPAck) Reset() {
+	*x = DSPAck{}
+	mi := &file_telemetry_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DSPAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DSPAck) ProtoMessage() {}
+
+func (x *DSPAck) ProtoReflect() protoreflect.Message {
+	mi := &file_telemetry_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DSPAck.ProtoReflect.Descriptor instead.
+func (*DSPAck) Descriptor() ([]byte, []int) {
+	return file_telemetry_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *DSPAck) GetAccpeted() bool {
+	if x != nil {
+		return x.Accpeted
+	}
+	return false
+}
+
+func (x *DSPAck) GetRejectionReason() string {
+	if x != nil {
+		return x.RejectionReason
+	}
+	return ""
+}
+
 var File_telemetry_proto protoreflect.FileDescriptor
 
 const file_telemetry_proto_rawDesc = "" +
@@ -135,9 +258,21 @@ const file_telemetry_proto_rawDesc = "" +
 	"\tsensor_id\x18\x02 \x01(\tR\bsensorId\x12)\n" +
 	"\x10wavelength_shift\x18\x03 \x01(\x01R\x0fwavelengthShift\"*\n" +
 	"\x0eStreamResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2[\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\xb0\x01\n" +
+	"\n" +
+	"FrameBatch\x12/\n" +
+	"\x06frames\x18\x01 \x03(\v2\x17.telemetry.OpticalFrameR\x06frames\x12\x1b\n" +
+	"\tsensor_id\x18\x02 \x01(\tR\bsensorId\x12&\n" +
+	"\x0fwindow_start_ns\x18\x03 \x01(\x03R\rwindowStartNs\x12,\n" +
+	"\x12window_duration_ms\x18\x04 \x01(\x01R\x10windowDurationMs\"O\n" +
+	"\x06DSPAck\x12\x1a\n" +
+	"\baccpeted\x18\x01 \x01(\bR\baccpeted\x12)\n" +
+	"\x10rejection_reason\x18\x02 \x01(\tR\x0frejectionReason2[\n" +
 	"\x10TelemetryService\x12G\n" +
-	"\x0fStreamTelemetry\x12\x17.telemetry.OpticalFrame\x1a\x19.telemetry.StreamResponse(\x01B?Z=github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pbb\x06proto3"
+	"\x0fStreamTelemetry\x12\x17.telemetry.OpticalFrame\x1a\x19.telemetry.StreamResponse(\x012I\n" +
+	"\n" +
+	"DSPService\x12;\n" +
+	"\rStreamBatches\x12\x15.telemetry.FrameBatch\x1a\x11.telemetry.DSPAck(\x01B?Z=github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pbb\x06proto3"
 
 var (
 	file_telemetry_proto_rawDescOnce sync.Once
@@ -151,19 +286,24 @@ func file_telemetry_proto_rawDescGZIP() []byte {
 	return file_telemetry_proto_rawDescData
 }
 
-var file_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_telemetry_proto_goTypes = []any{
 	(*OpticalFrame)(nil),   // 0: telemetry.OpticalFrame
 	(*StreamResponse)(nil), // 1: telemetry.StreamResponse
+	(*FrameBatch)(nil),     // 2: telemetry.FrameBatch
+	(*DSPAck)(nil),         // 3: telemetry.DSPAck
 }
 var file_telemetry_proto_depIdxs = []int32{
-	0, // 0: telemetry.TelemetryService.StreamTelemetry:input_type -> telemetry.OpticalFrame
-	1, // 1: telemetry.TelemetryService.StreamTelemetry:output_type -> telemetry.StreamResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: telemetry.FrameBatch.frames:type_name -> telemetry.OpticalFrame
+	0, // 1: telemetry.TelemetryService.StreamTelemetry:input_type -> telemetry.OpticalFrame
+	2, // 2: telemetry.DSPService.StreamBatches:input_type -> telemetry.FrameBatch
+	1, // 3: telemetry.TelemetryService.StreamTelemetry:output_type -> telemetry.StreamResponse
+	3, // 4: telemetry.DSPService.StreamBatches:output_type -> telemetry.DSPAck
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_telemetry_proto_init() }
@@ -177,9 +317,9 @@ func file_telemetry_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_telemetry_proto_rawDesc), len(file_telemetry_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_telemetry_proto_goTypes,
 		DependencyIndexes: file_telemetry_proto_depIdxs,

@@ -1,0 +1,10 @@
+# NumPy and SciPy MUST resolve to native ARM64/Accelerate wheels on Apple Silicon.
+# Verify: python -c "import numpy; numpy.show_config()" — must show "accelerate".
+# Do NOT add --platform or --only-binary flags that would pull manylinux x86 wheels.
+numpy>=2.0.0,<3.0.0
+scipy>=1.13.0,<2.0.0
+
+# gRPC runtime for the Unix-socket IPC server.
+grpcio>=1.64.0,<2.0.0
+grpcio-tools>=1.64.0,<2.0.0
+protobuf>=5.26.0,<6.0.0

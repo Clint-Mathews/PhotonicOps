@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "photonicops-dsp"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []  # Pin in requirements.txt, not here.
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "pb*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

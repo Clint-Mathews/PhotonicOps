@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/buffer"
+	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/dsp"
 	mygrpc "github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/grpc"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/worker"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb"
@@ -22,10 +23,14 @@ func main() {
 	}()
 
 	// 2. Initialize our Zero-Alloc components
-	ring := buffer.NewRingBuffer(10000)    // Hold last 1 second of data
-	pool := worker.NewFramePool(10, 50000) // 10 workers, channel buffer of 50k
+	ring := buffer.NewRingBuffer(10000) // Hold last 1 second of data
+	forwarder, err := dsp.NewForwarder()
+	if err != nil {
+		log.Fatalf("failed to connect to DSP process: %v", err)
+	}
+	pool := worker.NewFramePool(10, 50000, forwarder) // 10 workers, channel buffer of 50k
 
-	// 3. Setup gRPC Server
+	// 3. Setup gRPC ``Server
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
