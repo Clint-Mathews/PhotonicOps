@@ -6,6 +6,19 @@ services:
     container_name: prometheus
     ports:
       - "9090:9090"
+    volumes:
+      # Bind-mount the scrape config so Prometheus knows what to target.
+      # Edit config/prometheus/prometheus.yml to add or modify scrape jobs.
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Named volume for TSDB persistence across docker-compose restarts.
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      # Retain 15 days of metrics locally. Adjust for edge disk constraints.
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
     restart: unless-stopped
 
   grafana:
@@ -14,6 +27,8 @@ services:
     container_name: grafana
     ports:
       - "3001:3000"
+    depends_on:
+      - prometheus
     restart: unless-stopped
 
   postgres:
@@ -58,3 +73,4 @@ services:
 volumes:
   postgres_data:
   ollama_data:
+  prometheus_data:

@@ -1,0 +1,86 @@
+# PhotonicOps — Prometheus Scrape Configuration
+#
+# Scrape targets are registered here for all current and planned services.
+# Services that have not yet shipped their /metrics endpoint (Phase 1.5+) will
+# appear as DOWN in the Prometheus UI; this is expected. Do not remove a target
+# simply because it is currently unreachable — the presence of a DOWN target is
+# itself a signal that a requirement (NFR-6.1) is pending implementation.
+#
+# Port conventions (also documented in docs/ADR.md):
+#   2112  — ingestion-go  (prom/client_golang default; ships in Phase 1.5 Task 1.5.2)
+#   8001  — dsp-agent     (Python prometheus_client default; ships in Phase 2)
+#   8002  — triage-agent  (Python prometheus_client; ships in Phase 3)
+#   9090  — prometheus    (self-scrape)
+#   3000  — grafana       (internal Docker network port)
+
+global:
+  # Default interval at which Prometheus scrapes all targets.
+  scrape_interval: 15s
+  # Timeout for a single scrape request. Must be <= scrape_interval.
+  scrape_timeout: 10s
+  # How frequently Prometheus evaluates alerting and recording rules.
+  evaluation_interval: 15s
+  # Labels added to every time series and alert produced by this server.
+  external_labels:
+    system: photonicops
+    environment: local-edge
+
+scrape_configs:
+  # ------------------------------------------------------------------
+  # Prometheus self-monitoring.
+  # Tracks scrape duration, target health, and TSDB statistics.
+  # ------------------------------------------------------------------
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: prometheus
+          phase: "0"
+
+  # ------------------------------------------------------------------
+  # Grafana self-monitoring (exposes /metrics on its HTTP port).
+  # Uses the internal Docker network hostname, not the host-mapped port.
+  # ------------------------------------------------------------------
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels:
+          service: grafana
+          phase: "0"
+
+  # ------------------------------------------------------------------
+  # Go Ingestion Engine — ships in Phase 1.5 Task 1.5.2.
+  # Will be DOWN until the /metrics endpoint is added to
+  # services/ingestion-go/cmd/server/main.go.
+  # ------------------------------------------------------------------
+  - job_name: ingestion-go
+    static_configs:
+      - targets: ["ingestion-go:2112"]
+        labels:
+          service: ingestion-go
+          language: go
+          phase: "1.5"
+
+  # ------------------------------------------------------------------
+  # Python DSP Agent — ships in Phase 2.
+  # Will be DOWN until services/dsp-agent-python is running.
+  # ------------------------------------------------------------------
+  - job_name: dsp-agent
+    static_configs:
+      - targets: ["dsp-agent:8001"]
+        labels:
+          service: dsp-agent
+          language: python
+          phase: "2"
+
+  # ------------------------------------------------------------------
+  # Python LLMOps Triage Agent — ships in Phase 3.
+  # Will be DOWN until services/triage-agent is running.
+  # ------------------------------------------------------------------
+  - job_name: triage-agent
+    static_configs:
+      - targets: ["triage-agent:8002"]
+        labels:
+          service: triage-agent
+          language: python
+          phase: "3"
