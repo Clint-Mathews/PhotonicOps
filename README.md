@@ -107,21 +107,62 @@ The Python DSP pipeline is responsible for filtering out the thermal drift and d
 * GPU (NVIDIA/Apple Silicon) is highly recommended for Ollama inference latency
 
 ### Quick Start
-The entire stack is containerized for a one-click deployment.
 
+> **Run each block in a separate terminal tab** — the Go server, Python DSP agent, and mock sensor are three long-running processes that must all be alive simultaneously.
+
+#### Step 1 — Clone the repository
 ```bash
-# 1. Clone the repository
-git clone [https://github.com/Clint-Mathews/PhotonicOps.git](https://github.com/Clint-Mathews/PhotonicOps.git)
+git clone https://github.com/Clint-Mathews/PhotonicOps.git
 cd PhotonicOps
+```
 
-# 2. Spin up the stack (Go Engine, Python DSP, Ollama, Langfuse, UI, Prometheus)
+#### Step 2 — Start the supporting infrastructure
+Spins up Ollama (local LLM), Langfuse (LLM tracing), Prometheus, and Grafana in Docker containers in the background. Wait ~30 seconds for all services to be healthy before proceeding.
+```bash
 docker-compose up -d
 
-# 3. Start the mock sensor stream (generates 10kHz gRPC telemetry)
-go run services/ingestion-go/cmd/server/main.go
+# Verify everything is running — all containers should show "Up"
+docker-compose ps
+```
 
+#### Step 3 — Start the Go ingestion server *(Terminal 1)*
+Starts the high-throughput gRPC server that listens on port `50051` for incoming sensor frames. It maintains a zero-allocation ring buffer per sensor and a worker pool to forward batches to the Python DSP agent over a Unix socket.
+```bash
+go run services/ingestion-go/cmd/server/main.go
+```
+You should see: `gRPC server listening on :50051`
+
+#### Step 4 — Start the Python DSP agent *(Terminal 2)*
+Activates the virtual environment, then starts the Python signal-processing service. It opens a Unix domain socket at `/tmp/photonicops-dsp.sock` and waits for the Go server to forward frame batches. Each batch is run through the Kalman filter → baseline subtraction → spike detector pipeline.
+```bash
+cd services/dsp-agent-python
+source .venv/bin/activate      # activate the Python virtual environment
+python -m src.main             # start the DSP gRPC listener
+```
+You should see: `DSP IPC server listening on unix: /tmp/photonicops-dsp.sock`
+
+#### Step 5 — Run the mock sensor *(Terminal 3)*
+Blasts synthetic biosensor data at 10,000 frames/sec over gRPC to the Go server. The mock signal includes realistic thermal drift and injected bubble spikes so the full DSP pipeline can be validated end-to-end without physical hardware.
+```bash
+go run scripts/simulate_sensor.go
+```
+You should see spike warnings appear in the Python DSP terminal as the injected anomalies are detected.
+
+#### Step 6 — Verify the observability stack *(optional)*
+| Service | URL | What it shows |
+|---|---|---|
+| Langfuse | http://localhost:3000 | LLM triage decision traces |
+| Grafana | http://localhost:3001 | Ingestion throughput metrics |
+| Prometheus | http://localhost:9090 | Raw metrics scrape targets |
+
+#### Running the DSP test suite
+```bash
 cd services/dsp-agent-python
 source .venv/bin/activate
-python -m src.main
 
-go run scripts/simulate_sensor.go
+# Run all unit tests
+pytest tests/
+
+# Run with benchmark timing (validates the <10 ms/frame NFR)
+pytest tests/test_pipeline_benchmark.py -v --benchmark-only
+```

@@ -91,3 +91,4 @@ langfuse_data/
 # Ignore high-throughput local telemetry logs
 *.log
 logs/
+writeups/

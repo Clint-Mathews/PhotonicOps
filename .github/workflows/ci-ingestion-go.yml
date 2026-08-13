@@ -182,8 +182,18 @@ jobs:
 
       - name: Build ingestion-go Docker image
         working-directory: services/ingestion-go
-        run: docker buildx build --platform linux/arm64 -t photonicops/ingestion-go:test .
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --build-arg BUILDPLATFORM=linux/amd64 \
+            --build-arg TARGETPLATFORM=linux/arm64 \
+            -t photonicops/ingestion-go:test .
 
       - name: Build dsp-agent-python Docker image
         working-directory: services/dsp-agent-python
-        run: docker buildx build --platform linux/arm64 -t photonicops/dsp-agent-python:test .
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --build-arg BUILDPLATFORM=linux/amd64 \
+            --build-arg TARGETPLATFORM=linux/arm64 \
+            -t photonicops/dsp-agent-python:test .
