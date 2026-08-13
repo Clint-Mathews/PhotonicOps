@@ -97,28 +97,27 @@ We will run the LLM inference entirely offline utilizing **Ollama** deployed loc
 
 ---
 
-## ADR 006: Mandatory Transport Encryption for the gRPC Ingestion Endpoint
+## ADR 006: Defer mTLS on the Ingestion gRPC Transport
 
 ### Context
-The current ingestion server (`services/ingestion-go/cmd/server/main.go`) and the mock sensor client (`scripts/simulate_sensor.go`) both construct their gRPC connection with `insecure.NewCredentials()`. ADR-005 and NFR-3.1 claim the system is HIPAA-ready on the basis that no data leaves the local network. That claim does not hold on its own: HIPAA's Security Rule requires safeguards against interception even on a trusted network segment, clinical deployments frequently place sensors and the ingestion host on a shared LAN/VLAN with other equipment, and an unauthenticated, unencrypted TCP listener on `:50051` allows any host on that segment to inject or read frames.
+NFR-3.1 and the offline/HIPAA posture require locking down any network-exposed listener before real hardware or clinical data touches it. mTLS was originally scoped as a hard prerequisite before Phase 2 could start. Enforcing certificate issuance, rotation, and client verification before Phase 2A's DSP handoff even existed would have blocked every downstream phase on a task orthogonal to proving the ingestion → DSP → triage pipeline end-to-end.
 
 ### Decision
-The ingestion gRPC server will require mTLS for all sensor connections before Phase 2 begins. The server presents a certificate issued by a local, self-managed CA (no external CA/ACME dependency, consistent with the offline constraint); sensor clients must present a client certificate signed by the same CA. Development/simulation mode may fall back to a documented insecure flag (`--insecure-dev`) that refuses to start unless an explicit environment variable is also set, so it can never be silently enabled in a deployed build.
+Phase 1 and Phase 2A ship the ingestion gRPC server and `scripts/simulate_sensor.go` using `insecure.NewCredentials()`. mTLS — local self-signed CA via `scripts/generate_certs.sh`, no external ACME dependency — is deferred to Phase 5, Task 5.1, and is a hard gate before any deployment against real clinical hardware or a shared network segment.
 
 ### Consequences
 * **Positive:**
-  * Closes the gap between the "HIPAA-ready" claim and the actual transport posture.
-  * Client certificates double as a lightweight device-authentication mechanism, preventing rogue sensors from injecting frames.
+  * Unblocks Phase 2A/3/4A on the critical path without waiting on certificate lifecycle tooling.
 * **Negative:**
-  * Adds certificate provisioning/rotation as an operational concern for edge deployments.
-  * Slightly increases connection setup latency (amortized over a long-lived stream, so it does not affect the p99 per-frame latency budget).
+  * The current transport is not representative of the target security posture; every phase between now and Phase 5 must be treated as dev-only and never exposed off a single trusted host.
+  * Satisfies FR-1.5 only once Task 5.1 is complete — until then FR-1.5 is a known open gap, not a met requirement.
 
 ---
 
 ## ADR 007: Go → Python Transport for the DSP Handoff
 
 ### Context
-ADR-002 commits to "an inter-process communication stream" between the Go ingestion engine and the Python DSP pipeline without naming a mechanism. Phase 2 (`docs/ROADMAP.md`) cannot start until this is fixed, since it determines the shape of `src/dsp/kalman.py`'s input and the serialization/batching contract.
+ADR-002 commits to "an inter-process communication stream" between the Go ingestion engine and the Python DSP pipeline without naming a mechanism. Phase 2A (`docs/ROADMAP.md`) cannot start until this is fixed, since it determines the shape of `src/dsp/kalman.py`'s input and the serialization/batching contract.
 
 ### Decision
 The Go ingestion engine exposes a second, local-only gRPC service (over a Unix domain socket rather than a TCP port) that streams `OpticalFrame` batches to the Python DSP process, reusing the existing `proto/telemetry.proto` contract with an added batching wrapper message. A Unix domain socket is chosen over TCP loopback, shared memory, or a message broker (NATS/ZeroMQ/Redis) because it avoids introducing a new dependency into the offline stack, keeps a single schema source of truth (the existing `.proto` file), and has negligible latency overhead relative to the 10ms-per-frame DSP budget (NFR-1.2).
@@ -126,7 +125,7 @@ The Go ingestion engine exposes a second, local-only gRPC service (over a Unix d
 ### Consequences
 * **Positive:**
   * No new infrastructure dependency; reuses existing protobuf tooling and `make proto`.
-  * Unix domain sockets avoid TCP/IP stack overhead and are automatically scoped to the local host, closing off the network-exposure concern raised in ADR-006 for this internal hop.
+  * Unix domain sockets avoid TCP/IP stack overhead and are automatically scoped to the local host, closing off network-exposure concerns for this internal hop.
 * **Negative:**
   * Ties the Go and Python processes to co-location on the same host/filesystem namespace; this is acceptable for the current single-node edge deployment target but would need revisiting if the DSP pipeline is ever split onto a separate host.
   * Requires defining and versioning a frame-batching message (frame count, window duration) that does not exist in the current `.proto` file.
@@ -140,8 +139,8 @@ The triage agent (Phase 3) issues executable hardware commands (e.g., `FLUSH_VAL
 
 ### Decision
 The triage agent enforces an explicit fail-safe state machine:
-1. If Ollama is unreachable or a call times out, no remediation command is issued; the anomaly is logged and surfaced to the dashboard's Incident Management Feed (FR-4.2) as `REQUIRES_MANUAL_REVIEW`.
-2. If `confidence_score` is returned but falls below a configured threshold (default 0.7), the system logs the LLM's suggested action but does not execute it automatically — it is queued for the one-click manual override described in FR-4.2.
+1. If Ollama is unreachable or a call times out, no remediation command is issued; the anomaly is logged and surfaced via the CLI/stub interface as `REQUIRES_MANUAL_REVIEW`.
+2. If `confidence_score` is returned but falls below a configured threshold (default 0.7), the system logs the LLM's suggested action but does not execute it automatically — it is queued for manual override.
 3. Only responses that pass schema validation *and* meet the confidence threshold are auto-executed.
 This threshold and the manual-review fallback path are themselves subject to the Promptfoo regression suite (FR-5.3).
 
@@ -150,5 +149,5 @@ This threshold and the manual-review fallback path are themselves subject to the
   * Guarantees the system never autonomously actuates hardware on missing or low-confidence information — closes a safety-critical gap.
   * Gives clinical operators a bounded, auditable manual-override path rather than an implicit "nothing happens" failure mode.
 * **Negative:**
-  * Requires the dashboard's incident feed to exist and be monitored before Phase 3 remediation can be considered safe to enable outside of test environments; effectively couples the Phase 3 phase-gate to at least a minimal slice of Phase 4's UI.
+  * Requires the CLI/stub incident feed (Task 3.4b) to exist and be monitored before Phase 3 remediation can be considered safe to enable outside of test environments.
   * Introduces a tunable (confidence threshold) that needs to be validated empirically against real anomaly data rather than chosen arbitrarily.

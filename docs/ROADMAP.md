@@ -6,6 +6,30 @@
 
 This document outlines the step-by-step progression plan for building PhotonicOps. It defines the sequence of execution, which AI developer personas to invoke at each step, and the strict technical phase-gates required to move forward.
 
+## Execution Order
+
+```
+Phase 0  [x]
+Phase 1  [x]
+Phase 2A [x]
+Phase 3  [ ]
+Phase 4A [ ]
+Phase 5  [ ]
+Phase 4B [ ]
+Phase 2B [ ]
+```
+
+| Sequence | Phase | Contents |
+|---|---|---|
+| 1 | **2A** | Tasks 2.1, 2.2, 2.3 |
+| 2 | **3** | Agentic triage |
+| 3 | **4A** | Task 4.1 — eval suite |
+| 4 | **5** | Ingestion hardening |
+| 5 | **4B** | Tasks 4.2, 4.3, 4.4 — dashboard, remaining metrics, CI gate |
+| 6 | **2B** | Task 2.4 — biomarker extraction |
+
+Tasks 2.4 and 4.2 are deferred; each deferral is recorded as an ADR with rationale. ADR-006 (mTLS relaxation) is the reference pattern for this.
+
 ---
 
 ## [x] Phase 0: The Harness & Environment
@@ -36,86 +60,136 @@ This document outlines the step-by-step progression plan for building PhotonicOp
 
 ---
 
-## [ ] Phase 2: Digital Signal Processing Pipeline (Python)
-**Goal:** Extract clean signals from the noisy gRPC stream using vector math.
+## [x] Phase 2A: Minimum Viable DSP
+**Goal:** Produce a clean, flagged anomaly stream that Phase 3 can triage. Nothing more — Task 2.4 is explicitly not in this phase.
 
 * [x] **Task 2.0: Go → Python IPC Contract**
-  * Implement the Unix-domain-socket local gRPC transport decided in ADR-007, including the frame-batching wrapper message added to `proto/telemetry.proto`. This blocks every other Phase 2 task — `src/dsp/kalman.py` cannot be written against an undefined input contract.
+  * Implement the Unix-domain-socket local gRPC transport decided in ADR-007, including the frame-batching wrapper message added to `proto/telemetry.proto`. This blocks every other task in this phase.
   * *AI Persona:* `@go-architect` (Go side), `@dsp-math` (Python client side)
-* [ ] **Task 2.1: DSP Environment Setup**
+* [x] **Task 2.1: DSP Environment Setup**
   * Scaffold `services/dsp-agent-python/requirements.txt`.
   * *Constraint:* Ensure native ARM64 wheels for `NumPy` and `SciPy` (Accelerate framework compatibility).
-* [ ] **Task 2.2: Kalman Filter & Baseline Subtraction**
+  * *Verify:* `python -c "import numpy; numpy.show_config()"` shows Accelerate linkage, not a generic BLAS fallback.
+* [x] **Task 2.2: Kalman Filter & Baseline Subtraction**
   * Write `src/dsp/kalman.py`. Process the incoming Go telemetry IPC stream (Task 2.0) in vectorized chunks.
+  * *Constraint:* vectorized NumPy only. **No Python `for` loops over data arrays** (`@dsp-math` rule).
+  * *Target:* <10 ms per frame.
   * *AI Persona:* `@dsp-math`
-* [ ] **Task 2.3: Anomaly Detection**
+* [x] **Task 2.3: Anomaly Detection**
   * Write `src/dsp/spike_detector.py` to identify micro-bubbles via first-derivative thresholding ($|\frac{d\lambda}{dt}| > \text{threshold}$).
-* [ ] **Task 2.4: Biomarker Extraction**
-  * Extract steady-state optical saturation values and calculate estimated target protein concentration (ng/mL).
-  * Satisfies FR-2.3, previously specified in the SRS but untracked in this roadmap.
+  * Tune against the mock sensor's injected spikes; record the false-positive rate.
   * *AI Persona:* `@dsp-math`
-* [ ] **Phase Gate:** The Python pipeline successfully receives the data from Go, smooths the signal in $< 10\text{ ms}$ per frame, accurately flags the synthetic anomalies injected by the mock sensor, and produces a biomarker concentration estimate.
+* [x] **Task 2.A.1: Deferral ADR**
+  * Record the decision to defer Task 2.4 (biomarker extraction) and Task 4.2 (dashboard), with rationale and re-entry criteria.
+* [x] **Phase Gate (2A):** Python pipeline receives Go telemetry over UDS, smooths signal in <10 ms/frame, and reliably flags synthetic anomalies with a documented false-positive rate. **No biomarker output required to pass.**
 
 ---
 
-## [ ] Phase 3: LLMOps & Agentic Hardware Triage (Python)
-**Goal:** Enforce deterministic, zero-hallucination hardware remediation using the local M1 GPU.
+## [ ] Phase 3: LLMOps & Agentic Hardware Triage
+**Goal:** Deterministic, zero-hallucination hardware remediation on the local M1 GPU.
 
 * [ ] **Task 3.1: Hardware Skills & Schema**
-  * Define the strict hardware action schemas in `src/agent/schema.py` using Pydantic.
+  * Define strict hardware action schemas in `src/agent/schema.py` using Pydantic.
+  * Include `RemediationDecision`, `confidence_score`, enumerated action types (`FLUSH_VALVE` etc.), and explicit refusal states.
 * [ ] **Task 3.2: Instructor Integration & Triage Engine**
-  * Build `src/agent/triage.py` to prompt the local Ollama instance using `Instructor`. Pass the flagged DSP frame and require the LLM to output a `RemediationDecision`.
+  * Build `src/agent/triage.py` to prompt local Ollama via `Instructor`. Input: flagged DSP frame. Output: structured `RemediationDecision`.
   * *AI Persona:* `@mlops-agent`
 * [ ] **Task 3.3: Langfuse Tracing**
   * Wrap the LLM calls with `@observe()` decorators to log token usage and latency to the local Langfuse instance.
-* [ ] **Task 3.4: Fail-Safe State Machine**
-  * Implement the unreachable/timeout/low-confidence handling defined in ADR-008: no `remediation_action` is auto-executed unless the response is schema-valid *and* `confidence_score` clears the configured threshold; otherwise the anomaly is marked `REQUIRES_MANUAL_REVIEW`.
-  * Satisfies FR-3.5. Depends on at minimum a stub of the Phase 4 Incident Management Feed (FR-4.2) to surface manual-review items — do not enable autonomous execution against real hardware endpoints until that exists.
+* [ ] **Task 3.4: Fail-Safe State Machine** — the safety-critical task
+  * Implement the unreachable/timeout/low-confidence handling defined in ADR-008: **no `remediation_action` is auto-executed** unless the response is schema-valid *and* `confidence_score` clears the configured threshold. Otherwise → `REQUIRES_MANUAL_REVIEW`.
+  * Handle: schema-invalid · below-threshold confidence · timeout · unreachable.
+  * *Dependency:* requires at minimum a stub of the Phase 4B incident feed (FR-4.2) to surface manual-review items. **Do not enable autonomous execution against real hardware endpoints until that exists.**
+  * **Write the test that proves no action auto-executes on low confidence.** This test is the deliverable.
+  * Satisfies FR-3.5.
   * *AI Persona:* `@mlops-agent`
+* [ ] **Task 3.4b: Incident Feed Stub**
+  * Minimal surface for `REQUIRES_MANUAL_REVIEW` items so Task 3.4 is unblocked without building the full Phase 4B dashboard.
 * [ ] **Task 3.5: Diagnostic Audit Log**
-  * Persist every triage decision (auto-executed, manual-review, and manual-override outcomes) with timestamp and triggering telemetry window. Storage medium (local Postgres vs. reusing the Langfuse database) is an open decision to resolve at the start of this task.
+  * Persist every triage decision — auto-executed, manual-review, manual-override — with timestamp and triggering telemetry window.
+  * **Open decision to resolve at task start:** local Postgres vs. reusing the Langfuse database. Record as an ADR.
   * Satisfies FR-3.6.
-* [ ] **Phase Gate:** When the DSP pipeline detects a bubble, the local Llama 3.1 model successfully outputs a perfectly formatted `FLUSH_VALVE` JSON command in $< 2.0\text{ seconds}$, low-confidence/unreachable cases correctly fall back to `REQUIRES_MANUAL_REVIEW` instead of executing, and both outcomes are recorded in the audit log.
+* [ ] **Phase Gate (3):** Bubble detected → local Llama 3.1 emits well-formed `FLUSH_VALVE` JSON in <2.0 s · low-confidence and unreachable cases correctly fall back to `REQUIRES_MANUAL_REVIEW` without executing · both outcomes appear in the audit log.
 
 ---
 
-## [ ] Phase 4: Observability, Evals, & Dashboard
-**Goal:** Expose the internal state of the system and prove the AI's reliability mathematically.
+## [ ] Phase 4A: Evaluation Suite
+**Goal:** Prove the agent's reliability mathematically rather than anecdotally.
 
 * [ ] **Task 4.1: Prompt Evaluation Suite**
-  * Build `evals/test_cases.json` and configure Promptfoo to run regression tests on the agent's diagnostic accuracy against various synthetic noise profiles.
+  * Build `evals/test_cases.json`. Design the labelled scenario set across four classes: **clean · noisy · ambiguous · adversarial**.
+  * Configure Promptfoo for regression testing against synthetic noise profiles.
+  * Score: remediation accuracy, false-positive rate, p50/p95 latency.
+  * **Include the Phase 3 fail-safe paths (Task 3.4) as explicit eval cases** — an agent that correctly refuses is passing, not failing.
+  * Keep a record of prompts that didn't work; the failure log is as valuable as the pass rate.
+  * Satisfies FR-5.3.
   * *AI Persona:* `@mlops-agent`
-* [ ] **Task 4.2: Real-Time UI**
-  * Build the React/TypeScript dashboard in `services/dashboard-ui/`.
-  * Implement an HTML5 Canvas or WebGL chart (via Chart.js or similar) driven by WebSockets to plot the Raw vs. Filtered signal at $30\text{ FPS}$.
-* [ ] **Task 4.3: Prometheus Integration**
-  * Wire remaining DSP/agent processing-time metrics to Prometheus/Grafana. (Go ingestion `/metrics` ships in Phase 5 Task 5.2.)
-* [ ] **Task 4.4: AI-Reviewed CI/CD Gate**
-  * Add the `.github/workflows/ai-review.yml` GitHub Action referenced in `structure.txt` but not yet present in `.github/workflows/`, scanning PRs for data-privacy regressions (e.g., reintroduced cloud API calls, disabled mTLS) and `.agents/AGENTS.md` constraint violations.
-  * Satisfies FR-5.2, currently unimplemented.
-* [ ] **Phase Gate:** The React dashboard renders smoothly without crashing the browser tab. Promptfoo evaluations pass with $> 95\%$ remediation accuracy, including the Phase 3 fail-safe paths (Task 3.4). The AI-review CI gate is active on pull requests. The system is functionally complete.
+* [ ] **Phase Gate (4A):** Promptfoo evaluations pass at >95% remediation accuracy **including** fail-safe paths. Eval suite runs reproducibly from a single command.
+
+After this gate the agentic triage system may be described as built, not architected. Update the project README accordingly — and not before.
 
 ---
 
 ## [ ] Phase 5: Ingestion Hardening
-**Goal:** Close the remaining SRS gaps in the ingestion engine that do not block functional delivery of Phases 2–4 but are required before a production deployment. This phase was originally scoped as Phase 1.5 and intentionally deferred.
+**Goal:** Close the remaining SRS gaps required before any production deployment.
 
-> **ADR-006 Note:** Task 5.1 (mTLS) was originally marked as a hard prerequisite for Phase 2 in ADR-006. That constraint has been consciously relaxed for development velocity — the plaintext transport is acceptable in a local, single-host dev environment. mTLS **must** be completed before any deployment against real clinical hardware or a shared network segment.
+Task 5.1 (mTLS) must be completed before any deployment against real clinical hardware or a shared network segment; plaintext transport is acceptable on a local single host until then (ADR-006).
 
 * [ ] **Task 5.1: Transport Security**
-  * Implement mTLS on the ingestion gRPC server and mock sensor client, replacing `insecure.NewCredentials()`. Local self-signed CA, no external ACME dependency. Cert generation script already exists at `scripts/generate_certs.sh`.
-  * Satisfies FR-1.5 / ADR-006.
-  * *AI Persona:* `@go-architect`
+  * mTLS on the ingestion gRPC server and mock sensor client, replacing `insecure.NewCredentials()`.
+  * Local self-signed CA, no external ACME dependency. `scripts/generate_certs.sh` already exists.
+  * Satisfies FR-1.5 / ADR-006. *AI Persona:* `@go-architect`
 * [ ] **Task 5.2: Prometheus Metrics Endpoint**
-  * Export `/metrics` (frames/sec, `jobQueue` depth, ring buffer occupancy) from the ingestion server. Required for Phase 4 Task 4.3 Grafana wiring to be complete.
-  * Satisfies FR-1.4 / NFR-6.1 for the ingestion service.
+  * Export `/metrics`: frames/sec, `jobQueue` depth, ring buffer occupancy.
+  * Required before Phase 4B Task 4.3 Grafana wiring can be completed.
+  * Satisfies FR-1.4 / NFR-6.1.
 * [ ] **Task 5.3: Load-Shedding Mode**
-  * Add an opt-in non-blocking `select`/`default` send path in `internal/worker/pool.go::Enqueue` per `docs/FAQ/PHASE1.md` Q5, toggled by a `--load-shed` startup flag.
+  * Opt-in non-blocking `select`/`default` send path in `internal/worker/pool.go::Enqueue` per `docs/FAQ/PHASE1.md` Q5, behind a `--load-shed` startup flag.
+  * Verify under artificial backlog; measure and document what gets dropped and when.
   * Satisfies FR-1.3.
 * [ ] **Task 5.4: Per-Sensor Ring Buffer Sharding**
-  * Key `internal/buffer.RingBuffer` by `sensor_id` (or otherwise size it for concurrent multi-sensor retention) so historical depth doesn't collapse under NFR-4.1 load.
+  * Key `internal/buffer.RingBuffer` by `sensor_id` (or size it for concurrent multi-sensor retention) so historical depth doesn't collapse under NFR-4.1 load.
   * Satisfies NFR-4.2.
 * [ ] **Task 5.5: CI ARM64 Build Target**
-  * Fix `build-binary` job in `.github/workflows/ci-ingestion-go.yml` to produce a `linux/arm64` artifact in addition to `linux/amd64`.
+  * Fix the `build-binary` job in `.github/workflows/ci-ingestion-go.yml` to produce a `linux/arm64` artifact alongside `linux/amd64`.
   * Satisfies NFR-2.1.
-* [ ] **Phase Gate:** `docker-compose`-launched ingestion server rejects non-mTLS connections, `/metrics` is scrapeable and wired into Grafana, load-shedding can be toggled and verified under an artificial backlog, per-sensor history is retrievable independent of other concurrently streaming sensors, and CI produces a native ARM64 binary.
+* [ ] **Phase Gate (5):** Ingestion server rejects non-mTLS connections · `/metrics` scrapeable and wired into Grafana · load-shedding togglable and verified under backlog · per-sensor history retrievable independently of other streaming sensors · CI produces a native ARM64 binary.
+
+---
+
+## [ ] Phase 4B: Observability & Dashboard
+**Goal:** Expose internal system state visually.
+
+* [ ] **Task 4.2: Real-Time UI**
+  * React/TypeScript dashboard in `services/dashboard-ui/`.
+  * HTML5 Canvas or WebGL chart (Chart.js or similar) over WebSockets, plotting Raw vs. Filtered signal at 30 FPS.
+  * Promote the Task 3.4b incident-feed stub into the full manual-review queue.
+  * Satisfies FR-4.1 / FR-4.2.
+* [ ] **Task 4.3: Prometheus Integration**
+  * Wire remaining DSP/agent processing-time metrics to Prometheus/Grafana. (Go ingestion `/metrics` shipped in Task 5.2.)
+  * Satisfies FR-4.3.
+* [ ] **Task 4.4: AI-Reviewed CI/CD Gate**
+  * Add `.github/workflows/ai-review.yml` (referenced in `structure.txt`, not yet present) — scan PRs for data-privacy regressions (reintroduced cloud API calls, disabled mTLS) and `.agents/AGENTS.md` constraint violations.
+  * Satisfies FR-5.2.
+* [ ] **Phase Gate (4B):** Dashboard renders at 30 FPS without crashing the tab · manual-review queue functional · AI-review CI gate active on PRs.
+
+---
+
+## [ ] Phase 2B: Biomarker Extraction
+**Goal:** Complete the original scientific scope.
+
+* [ ] **Task 2.4: Biomarker Extraction**
+  * Extract steady-state optical saturation values; calculate estimated target protein concentration (ng/mL).
+  * Satisfies FR-2.3.
+  * *AI Persona:* `@dsp-math`
+* [ ] **Phase Gate (2B):** Pipeline produces a biomarker concentration estimate consistent with the mock sensor's ground truth.
+
+---
+
+## Definition of Done — full system
+
+- [ ] All phase gates passed
+- [ ] Every deferral documented as an ADR with re-entry criteria
+- [ ] README accurately states build status per phase — no "architected" language for anything shipped, no "built" language for anything designed
+- [ ] Zero cloud API calls anywhere in the codebase (enforced by Task 4.4)
+- [ ] `docker-compose up -d` → working end-to-end system on a clean ARM64 machine
