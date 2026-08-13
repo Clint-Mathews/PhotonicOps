@@ -30,7 +30,7 @@ message FrameBatch {
 }
 
 message DSPAck {
-    bool accpeted = 1;
+    bool accepted = 1;
     string rejection_reason = 2; // Non-empty only when accepted == false.
 }
 

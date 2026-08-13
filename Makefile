@@ -14,12 +14,13 @@ proto:
 
 proto-python:
 	mkdir -p services/dsp-agent-python/pb
-	$(DSP_PYTHON) -m grpc_tools.protoc \
+	PATH="$$PWD/services/dsp-agent-python/.venv/bin:$$PATH" $(DSP_PYTHON) -m grpc_tools.protoc \
 	    --proto_path=proto \
 	    --python_out=services/dsp-agent-python/pb \
 	    --grpc_python_out=services/dsp-agent-python/pb \
 	    proto/telemetry.proto
 	sed -i '' 's/^import telemetry_pb2/from . import telemetry_pb2/' \
 	    services/dsp-agent-python/pb/telemetry_pb2_grpc.py
+
 
 proto-all: proto proto-python

@@ -1,5 +1,7 @@
 pyproject.toml
 pb/__init__.py
+pb/telemetry_pb2.py
+pb/telemetry_pb2_grpc.py
 photonicops_dsp.egg-info/PKG-INFO
 photonicops_dsp.egg-info/SOURCES.txt
 photonicops_dsp.egg-info/dependency_links.txt

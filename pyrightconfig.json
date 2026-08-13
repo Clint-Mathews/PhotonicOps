@@ -1,0 +1,13 @@
+{
+  "venvPath": "services/dsp-agent-python",
+  "venv": ".venv",
+  "extraPaths": [
+    "services/dsp-agent-python",
+    "services/dsp-agent-python/pb"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "services/dsp-agent-python"
+    }
+  ]
+}
