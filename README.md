@@ -23,6 +23,48 @@ The system is built on a high-throughput, low-latency microservices architecture
 
 ---
 
+## 🧠 How the Signal Processing Works
+
+The raw signal coming off a biosensor is messy — it has random jitter, slow temperature drift, and occasional sudden events (like a micro-bubble blocking the channel). The DSP pipeline cleans this up in three steps before any AI decision is made.
+
+### Step 1 — Noise Smoothing (Kalman Filter)
+Every sensor reading has a small amount of random electrical noise that makes the signal jitter up and down unpredictably. The **Kalman filter** removes this by acting as a trust manager: instead of blindly trusting every new reading, it blends the new reading with what it already expected, based on how noisy the sensor is known to be. The output is a clean, stable version of the same signal. Its weighting is calculated once at startup (not per-sample), keeping per-frame processing well under 10 ms.
+
+### Step 2 — Drift Removal (Baseline Subtraction)
+Even after noise is removed, the signal slowly wanders up or down over time due to temperature changes in the lab. This is called **thermal drift** — it is not a real biological event, just physics. We compute a rolling average of the signal and subtract it, leaving only the fast-moving changes that actually matter.
+
+### Step 3 — Anomaly Detection (Spike Detector)
+After cleaning the signal, we watch **how fast** it is changing. A slow drift is normal; a sudden sharp jump (e.g., a 50 pm change in under 100 ms) means something physically happened — a micro-bubble passed the sensor, or a cell clogged the channel. If the rate of change exceeds a configurable threshold (default: 500 pm/s), it is flagged as an anomaly and the AI triage agent is notified.
+
+### Why this order matters
+The spike detector runs **after** the Kalman filter, not the raw signal. This is intentional — running on raw noisy data would produce constant false alarms. The Kalman filter eliminates the noise first so the spike detector only sees real physical events.
+
+```mermaid
+flowchart TD
+    A["🔬 Raw Sensor Data\n(noisy wavelength readings at 10,000 Hz)"]
+
+    A --> B["Step 1 — Kalman Filter\n<i>Blends new readings with prior expectation</i>\nOutput: clean, stable signal"]
+
+    B --> C["Step 2 — Baseline Subtraction\n<i>Subtracts a rolling average</i>\nOutput: drift removed, only fast changes remain"]
+
+    C --> D{"Step 3 — Spike Detector\nIs rate-of-change > 500 pm/s?"}
+
+    D -- "No → normal operation" --> E["✅ Clean Frame\nStored for monitoring dashboard"]
+    D -- "Yes → anomaly detected" --> F["⚠️ Spike Flagged\nMicro-bubble or clog event"]
+
+    F --> G["🤖 AI Triage Agent\n(Local LLM via Ollama)\nGenerates hardware remediation command"]
+
+    style A fill:#1e293b,color:#94a3b8,stroke:#334155
+    style B fill:#0f172a,color:#38bdf8,stroke:#0ea5e9
+    style C fill:#0f172a,color:#38bdf8,stroke:#0ea5e9
+    style D fill:#0f172a,color:#fbbf24,stroke:#f59e0b
+    style E fill:#0f172a,color:#4ade80,stroke:#22c55e
+    style F fill:#0f172a,color:#f87171,stroke:#ef4444
+    style G fill:#1e293b,color:#c084fc,stroke:#a855f7
+```
+
+---
+
 ## 🛠️ Tech Stack
 
 * **Ingestion Engine:** Go, `google.golang.org/grpc`
@@ -77,4 +119,9 @@ docker-compose up -d
 
 # 3. Start the mock sensor stream (generates 10kHz gRPC telemetry)
 go run services/ingestion-go/cmd/server/main.go
+
+cd services/dsp-agent-python
+source .venv/bin/activate
+python -m src.main
+
 go run scripts/simulate_sensor.go
