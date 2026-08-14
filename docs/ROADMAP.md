@@ -12,7 +12,7 @@ This document outlines the step-by-step progression plan for building PhotonicOp
 Phase 0  [x]
 Phase 1  [x]
 Phase 2A [x]
-Phase 3  [ ]
+Phase 3  [x]
 Phase 4A [ ]
 Phase 5  [ ]
 Phase 4B [ ]
@@ -85,31 +85,31 @@ Tasks 2.4 and 4.2 are deferred; each deferral is recorded as an ADR with rationa
 
 ---
 
-## [ ] Phase 3: LLMOps & Agentic Hardware Triage
+## [x] Phase 3: LLMOps & Agentic Hardware Triage
 **Goal:** Deterministic, zero-hallucination hardware remediation on the local M1 GPU.
 
-* [ ] **Task 3.1: Hardware Skills & Schema**
+* [x] **Task 3.1: Hardware Skills & Schema**
   * Define strict hardware action schemas in `src/agent/schema.py` using Pydantic.
   * Include `RemediationDecision`, `confidence_score`, enumerated action types (`FLUSH_VALVE` etc.), and explicit refusal states.
-* [ ] **Task 3.2: Instructor Integration & Triage Engine**
+* [x] **Task 3.2: Instructor Integration & Triage Engine**
   * Build `src/agent/triage.py` to prompt local Ollama via `Instructor`. Input: flagged DSP frame. Output: structured `RemediationDecision`.
   * *AI Persona:* `@mlops-agent`
-* [ ] **Task 3.3: Langfuse Tracing**
+* [x] **Task 3.3: Langfuse Tracing**
   * Wrap the LLM calls with `@observe()` decorators to log token usage and latency to the local Langfuse instance.
-* [ ] **Task 3.4: Fail-Safe State Machine** — the safety-critical task
+* [x] **Task 3.4: Fail-Safe State Machine** — the safety-critical task
   * Implement the unreachable/timeout/low-confidence handling defined in ADR-008: **no `remediation_action` is auto-executed** unless the response is schema-valid *and* `confidence_score` clears the configured threshold. Otherwise → `REQUIRES_MANUAL_REVIEW`.
   * Handle: schema-invalid · below-threshold confidence · timeout · unreachable.
   * *Dependency:* requires at minimum a stub of the Phase 4B incident feed (FR-4.2) to surface manual-review items. **Do not enable autonomous execution against real hardware endpoints until that exists.**
   * **Write the test that proves no action auto-executes on low confidence.** This test is the deliverable.
   * Satisfies FR-3.5.
   * *AI Persona:* `@mlops-agent`
-* [ ] **Task 3.4b: Incident Feed Stub**
+* [x] **Task 3.4b: Incident Feed Stub**
   * Minimal surface for `REQUIRES_MANUAL_REVIEW` items so Task 3.4 is unblocked without building the full Phase 4B dashboard.
-* [ ] **Task 3.5: Diagnostic Audit Log**
+* [x] **Task 3.5: Diagnostic Audit Log**
   * Persist every triage decision — auto-executed, manual-review, manual-override — with timestamp and triggering telemetry window.
   * **Open decision to resolve at task start:** local Postgres vs. reusing the Langfuse database. Record as an ADR.
   * Satisfies FR-3.6.
-* [ ] **Phase Gate (3):** Bubble detected → local Llama 3.1 emits well-formed `FLUSH_VALVE` JSON in <2.0 s · low-confidence and unreachable cases correctly fall back to `REQUIRES_MANUAL_REVIEW` without executing · both outcomes appear in the audit log.
+* [x] **Phase Gate (3):** Bubble detected → local Llama 3.1 emits well-formed `FLUSH_VALVE` JSON in <2.0 s · low-confidence and unreachable cases correctly fall back to `REQUIRES_MANUAL_REVIEW` without executing · both outcomes appear in the audit log.
 
 ---
 
