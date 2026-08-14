@@ -8,3 +8,9 @@ scipy>=1.13.0,<2.0.0
 grpcio>=1.64.0,<2.0.0
 grpcio-tools>=1.64.0,<2.0.0
 protobuf>=5.26.0,<6.0.0
+
+instructor>=1.4.0,<2.0.0
+pydantic>=2.7.0,<3.0.0
+openai>=1.30.0,<2.0.0   # HTTP client only — talks to Ollama's OpenAI-compatible /v1 endpoint, no OpenAI account/key involved
+langfuse>=2.36.0,<3.0.0
+psycopg[binary]>=3.1.0,<4.0.0   # If Postgres is choosen over the Langfuse DB (For later)

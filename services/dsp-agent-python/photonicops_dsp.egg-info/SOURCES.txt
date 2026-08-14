@@ -7,7 +7,15 @@ photonicops_dsp.egg-info/SOURCES.txt
 photonicops_dsp.egg-info/dependency_links.txt
 photonicops_dsp.egg-info/top_level.txt
 src/__init__.py
+src/main.py
 src/agent/__init__.py
 src/dsp/__init__.py
+src/dsp/exceptions.py
+src/dsp/kalman.py
+src/dsp/pipeline.py
+src/dsp/spike_detector.py
 src/ipc/__init__.py
 src/ipc/client.py
+tests/test_kalman.py
+tests/test_pipeline_benchmark.py
+tests/test_spike_detector.py
