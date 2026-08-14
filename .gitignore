@@ -51,6 +51,7 @@ venv.bak/
 .promptfoo/
 promptfoo-coverage/
 evals/*.log
+*.jsonl
 
 # ==============================================================================
 # Node.js & React (Dashboard UI)
