@@ -12,7 +12,7 @@ import (
 
 type Server struct {
 	pb.UnimplementedTelemetryServiceServer
-	Ring   *buffer.RingBuffer
+	Ring   buffer.FrameSink
 	Worker *worker.FramePool
 }
 

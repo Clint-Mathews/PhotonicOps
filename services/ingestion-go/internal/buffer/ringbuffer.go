@@ -41,4 +41,19 @@ func (r *RingBuffer) Push(frame *pb.OpticalFrame) {
 	}
 }
 
-func (r *RingBuffer) Occupancy() int { return r.count }
+func (r *RingBuffer) Occupancy() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.count
+}
+
+func (r *RingBuffer) Snapshot() []*pb.OpticalFrame {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	out := make([]*pb.OpticalFrame, r.count)
+	for i := 0; i < r.count; i++ {
+		out[i] = r.data[(r.tail+i)%r.size]
+	}
+	return out
+}

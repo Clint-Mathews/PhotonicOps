@@ -62,3 +62,32 @@ func TestRingBuffer_Push(t *testing.T) {
 		t.Errorf("expected SensorId 4 at index 0, got %s", rb.data[0].SensorId)
 	}
 }
+
+func TestRingBuffer_Snapshot(t *testing.T) {
+	rb := NewRingBuffer(3)
+	if got := rb.Snapshot(); len(got) != 0 {
+		t.Fatalf("empty snapshot length = %d, want 0", len(got))
+	}
+	if got := rb.Occupancy(); got != 0 {
+		t.Fatalf("empty occupancy = %d, want 0", got)
+	}
+
+	rb.Push(&pb.OpticalFrame{SensorId: "1"})
+	rb.Push(&pb.OpticalFrame{SensorId: "2"})
+	rb.Push(&pb.OpticalFrame{SensorId: "3"})
+	rb.Push(&pb.OpticalFrame{SensorId: "4"}) // overwrites "1"
+
+	if got := rb.Occupancy(); got != 3 {
+		t.Fatalf("occupancy = %d, want 3", got)
+	}
+	got := rb.Snapshot()
+	if len(got) != 3 {
+		t.Fatalf("snapshot length = %d, want 3", len(got))
+	}
+	want := []string{"2", "3", "4"}
+	for i, id := range want {
+		if got[i].SensorId != id {
+			t.Errorf("snapshot[%d].SensorId = %s, want %s", i, got[i].SensorId, id)
+		}
+	}
+}

@@ -183,3 +183,37 @@ func TestServer_StreamTelemetry_LoadShedCompletesWhenQueueFull(t *testing.T) {
 		t.Errorf("ring occupancy = %d, want 2 (load-shed drops the worker handoff, not the UI buffer)", got)
 	}
 }
+
+func TestServer_StreamTelemetry_ShardedIndependentHistory(t *testing.T) {
+	const perSensor = 2
+	ring := buffer.NewShardedRingBuffer(perSensor)
+	server := &Server{
+		Ring:   ring,
+		Worker: worker.NewFramePool(2, 16, dsp.NewForwarderWithClient(&noopDSPClient{}), false),
+	}
+
+	seedB := &pb.OpticalFrame{SensorId: "B", WavelengthShift: 99}
+	err := server.StreamTelemetry(&mockStream{
+		frames: []*pb.OpticalFrame{
+			seedB,
+			{SensorId: "A", WavelengthShift: 0},
+			{SensorId: "A", WavelengthShift: 1},
+			{SensorId: "A", WavelengthShift: 2},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	gotB := ring.Snapshot("B")
+	if len(gotB) != 1 || gotB[0] != seedB {
+		t.Fatalf("sensor B snapshot = %v, want the original seed frame", gotB)
+	}
+	gotA := ring.Snapshot("A")
+	if len(gotA) != perSensor {
+		t.Fatalf("sensor A snapshot length = %d, want %d", len(gotA), perSensor)
+	}
+	if gotA[0].WavelengthShift != 1 || gotA[1].WavelengthShift != 2 {
+		t.Errorf("sensor A snapshot shifts = [%v, %v], want [1, 2]", gotA[0].WavelengthShift, gotA[1].WavelengthShift)
+	}
+}

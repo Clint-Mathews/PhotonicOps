@@ -35,7 +35,7 @@ func main() {
 	// 2. Initialize our Zero-Alloc components
 	loadShed := flag.Bool("load-shead", false, "drop frames when jobQueue is full instead of blocking")
 	flag.Parse()
-	ring := buffer.NewRingBuffer(10000) // Hold last 1 second of data
+	ring := buffer.NewShardedRingBuffer(10000) // Hold last 1 second of data per sensor
 	forwarder, err := dsp.NewForwarder()
 	if err != nil {
 		log.Fatalf("failed to connect to DSP process: %v", err)
