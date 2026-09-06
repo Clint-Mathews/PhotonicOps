@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/buffer"
+	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/metrics"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/worker"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb"
 )
@@ -27,6 +28,7 @@ func (s *Server) StreamTelemetry(stream pb.TelemetryService_StreamTelemetryServe
 			return err
 		}
 		// Push to RingBuffer (for the UI) and Worker Pool (for DSP)
+		metrics.FramesTotal.Inc()
 		s.Ring.Push(frame)
 		s.Worker.Enqueue(frame)
 	}

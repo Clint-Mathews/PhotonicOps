@@ -1,8 +1,9 @@
 package buffer
 
 import (
-	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb"
 	"sync"
+
+	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb"
 )
 
 // RingBuffer implements a fixed-size circular buffer for storing OpticalFrame
@@ -39,3 +40,5 @@ func (r *RingBuffer) Push(frame *pb.OpticalFrame) {
 		r.tail = (r.tail + 1) % r.size
 	}
 }
+
+func (r *RingBuffer) Occupancy() int { return r.count }

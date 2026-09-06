@@ -78,6 +78,7 @@ services:
     ports:
       - "50051:50051"  # gRPC sensor ingestion.
       - "6060:6060"    # pprof profiling endpoint.
+      - "2112:2112"    # prometheus metrics endpoint.
     volumes:
       # Share the host /tmp so the Unix domain socket
       # (/tmp/photonicops-dsp.sock) is visible to both services.

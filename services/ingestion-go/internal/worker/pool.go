@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/dsp"
+	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/metrics"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb"
 )
 
@@ -12,6 +13,7 @@ type FramePool struct {
 	jobQueue  chan *pb.OpticalFrame
 	wg        sync.WaitGroup
 	forwarder *dsp.Forwarder
+	loadShed  bool
 }
 
 // frameSyncPool is our sync.Pool. It reuses byte buffers
@@ -23,10 +25,11 @@ var frameSyncPool = sync.Pool{
 	},
 }
 
-func NewFramePool(workers, queueSize int, forwarder *dsp.Forwarder) *FramePool {
+func NewFramePool(workers, queueSize int, forwarder *dsp.Forwarder, loadShed bool) *FramePool {
 	p := &FramePool{
 		jobQueue:  make(chan *pb.OpticalFrame, queueSize),
 		forwarder: forwarder,
+		loadShed:  loadShed,
 	}
 	// Spin up fixed workers on startup
 	for i := 0; i < workers; i++ {
@@ -53,5 +56,15 @@ func (p *FramePool) worker(id int) {
 }
 
 func (p *FramePool) Enqueue(frame *pb.OpticalFrame) {
-	p.jobQueue <- frame
+	if !p.loadShed {
+		p.jobQueue <- frame
+		return
+	}
+	select {
+	case p.jobQueue <- frame:
+	default:
+		metrics.FramesDroppedTotal.Inc()
+	}
 }
+
+func (p *FramePool) QueueDepth() int { return len(p.jobQueue) }

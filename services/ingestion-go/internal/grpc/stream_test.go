@@ -4,14 +4,17 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/buffer"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/dsp"
+	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/metrics"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/internal/worker"
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb"
+	dto "github.com/prometheus/client_model/go"
 )
 
 // mockStream implements pb.TelemetryService_StreamTelemetryServer
@@ -27,7 +30,7 @@ type mockStream struct {
 func (m *mockStream) Recv() (*pb.OpticalFrame, error) {
 	if m.index >= len(m.frames) {
 		// When we run out of mock frames, send EOF to simulate the client closing the stream
-		return nil, io.EOF 
+		return nil, io.EOF
 	}
 	frame := m.frames[m.index]
 	m.index++
@@ -56,7 +59,7 @@ type noopDSPClient struct{}
 
 type noopStream struct{ grpc.ClientStream }
 
-func (s *noopStream) Send(_ *pb.FrameBatch) error      { return nil }
+func (s *noopStream) Send(_ *pb.FrameBatch) error { return nil }
 func (s *noopStream) CloseAndRecv() (*pb.DSPAck, error) {
 	return &pb.DSPAck{Accpeted: true}, nil
 }
@@ -65,20 +68,32 @@ func (c *noopDSPClient) StreamBatches(_ context.Context, _ ...grpc.CallOption) (
 	return &noopStream{}, nil
 }
 
-func TestServer_StreamTelemetry(t *testing.T) {
-	// 1. Initialize the Zero-Allocation components.
-	// newForwarderWithClient injects a no-op DSP client so worker goroutines
-	// can call Push without panicking and without requiring a live Unix socket.
-	ring := buffer.NewRingBuffer(10)
-	forwarder := dsp.NewForwarderWithClient(&noopDSPClient{})
-	pool := worker.NewFramePool(2, 10, forwarder)
-
-	server := &Server{
-		Ring:   ring,
-		Worker: pool,
+func newTestServer(workers, queueSize int, loadShed bool) *Server {
+	return &Server{
+		Ring:   buffer.NewRingBuffer(10),
+		Worker: worker.NewFramePool(workers, queueSize, dsp.NewForwarderWithClient(&noopDSPClient{}), loadShed),
 	}
+}
 
-	// 2. Setup the mock stream with 3 simulated frames
+func twoFrames() []*pb.OpticalFrame {
+	return []*pb.OpticalFrame{
+		{SensorId: "sensor-1", WavelengthShift: 1.0},
+		{SensorId: "sensor-2", WavelengthShift: 2.0},
+	}
+}
+
+func counterValue(t *testing.T, c interface{ Write(*dto.Metric) error }) float64 {
+	t.Helper()
+	var m dto.Metric
+	if err := c.Write(&m); err != nil {
+		t.Fatalf("read counter: %v", err)
+	}
+	return m.GetCounter().GetValue()
+}
+
+func TestServer_StreamTelemetry(t *testing.T) {
+	server := newTestServer(2, 10, false)
+
 	stream := &mockStream{
 		frames: []*pb.OpticalFrame{
 			{SensorId: "sensor-1", WavelengthShift: 1.0},
@@ -87,10 +102,8 @@ func TestServer_StreamTelemetry(t *testing.T) {
 		},
 	}
 
-	// 3. Execute the function (it should process all 3 frames and exit on EOF)
 	err := server.StreamTelemetry(stream)
 
-	// 4. Validate results
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -102,7 +115,71 @@ func TestServer_StreamTelemetry(t *testing.T) {
 	if stream.response == nil || !stream.response.Success {
 		t.Errorf("expected StreamResponse{Success: true}, got %v", stream.response)
 	}
+}
 
-	// Because it didn't panic or freeze, we know it successfully handed the frames
-	// off to both the RingBuffer and the WorkerPool job queue!
+func TestServer_StreamTelemetry_BlocksWhenQueueFull(t *testing.T) {
+	// Zero workers: nothing drains jobQueue, so the second Enqueue blocks StreamTelemetry.
+	server := newTestServer(0, 1, false)
+	stream := &mockStream{frames: twoFrames()}
+
+	done := make(chan struct{})
+	go func() {
+		_ = server.StreamTelemetry(stream)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("StreamTelemetry returned while jobQueue was full; expected blocking backpressure")
+	case <-time.After(100 * time.Millisecond):
+		// still blocked — expected
+	}
+
+	if stream.closed {
+		t.Error("SendAndClose must not run while Enqueue is blocked on a full jobQueue")
+	}
+	if got := server.Worker.QueueDepth(); got != 1 {
+		t.Errorf("QueueDepth = %d, want 1", got)
+	}
+}
+
+func TestServer_StreamTelemetry_LoadShedCompletesWhenQueueFull(t *testing.T) {
+	server := newTestServer(0, 1, true)
+	stream := &mockStream{frames: twoFrames()}
+
+	beforeDropped := counterValue(t, metrics.FramesDroppedTotal)
+	beforeTotal := counterValue(t, metrics.FramesTotal)
+
+	done := make(chan struct{})
+	var streamErr error
+	go func() {
+		streamErr = server.StreamTelemetry(stream)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("load-shed StreamTelemetry blocked on a full jobQueue; expected an immediate drop")
+	}
+
+	if streamErr != nil {
+		t.Fatalf("expected no error, got %v", streamErr)
+	}
+	if !stream.closed {
+		t.Error("expected SendAndClose to be called on the stream")
+	}
+	if stream.response == nil || !stream.response.Success {
+		t.Errorf("expected StreamResponse{Success: true}, got %v", stream.response)
+	}
+
+	if got := counterValue(t, metrics.FramesDroppedTotal); got != beforeDropped+1 {
+		t.Errorf("FramesDroppedTotal: got %v, want %v", got, beforeDropped+1)
+	}
+	if got := counterValue(t, metrics.FramesTotal); got != beforeTotal+2 {
+		t.Errorf("FramesTotal: got %v, want %v (both frames counted before Enqueue)", got, beforeTotal+2)
+	}
+	if got := server.Ring.Occupancy(); got != 2 {
+		t.Errorf("ring occupancy = %d, want 2 (load-shed drops the worker handoff, not the UI buffer)", got)
+	}
 }
