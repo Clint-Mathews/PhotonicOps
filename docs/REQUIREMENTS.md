@@ -45,7 +45,7 @@ v
 
 ### Module 3: LLMOps Diagnostic & Triage Agent (Python)
 * **FR-3.1 (Automated Triggering):** Instantly trigger an AI diagnostic agent when Signal-to-Noise Ratio (SNR) drops below 12 dB or when a hard hardware anomaly is flagged.
-* **FR-3.2 (Offline Execution):** Connect to a locally hosted Ollama instance (llama3.1:8b or qwen2.5:7b) running natively on Apple Silicon (Metal/MPS) with zero cloud API dependencies.
+* **FR-3.2 (Offline Execution):** Connect to a locally hosted Ollama instance (llama3.2:3b) running natively on Apple Silicon (Metal/MPS) with zero cloud API dependencies.
 * **FR-3.3 (Zero-Hallucination Schema Enforcement):** Enforce strict JSON output schemas via Pydantic/Instructor containing:
   * `failure_category`: Enum (MICROFLUIDIC_BUBBLE, THERMAL_DRIFT, PHOTONIC_ALIGNMENT_LOSS, NORMAL_NOISE, UNKNOWN)
   * `confidence_score`: Float between 0.0 and 1.0

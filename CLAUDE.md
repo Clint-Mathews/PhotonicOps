@@ -57,7 +57,7 @@ docker-compose up -d
 ./scripts/check_phase0.sh
 
 # Pull the local LLM weights into the Ollama container
-docker exec -it ollama-photonicops ollama run llama3.1:8b
+docker exec -it ollama-photonicops ollama run llama3.2:3b
 ```
 
 CI (`.github/workflows/ci-ingestion-go.yml`) only triggers on changes under `services/ingestion-go/**`, `proto/**`, `go.work*`, or the workflow file itself. It runs `go mod verify`, `go vet`, `go test -race` with coverage, then a separate job cross-compiles a static Linux/amd64 binary (`CGO_ENABLED=0`) purely as a CI artifact — that target architecture is unrelated to the arm64 runtime requirement above, which governs Docker images actually deployed.

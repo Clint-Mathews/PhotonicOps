@@ -69,7 +69,7 @@ flowchart TD
 
 * **Ingestion Engine:** Go, `google.golang.org/grpc`
 * **Signal Processing (DSP):** Python, `NumPy`, `SciPy`, `FilterPy`
-* **Local AI Agent:** Ollama / vLLM (`llama3.1:8b` or `qwen2.5:7b`)
+* **Local AI Agent:** Ollama / vLLM (`llama3.2:3b`)
 * **Schema Enforcement:** `Instructor-Python`, `Pydantic`
 * **MLOps & Tracing:** Langfuse (Docker), Promptfoo (CLI)
 * **Metrics & UI:** Prometheus, Grafana, React, TypeScript, Tailwind CSS, Chart.js
@@ -144,7 +144,7 @@ docker-compose up -d
 docker-compose ps
 
 # Pull the LLM weights into the Ollama container (only needed once)
-docker exec -it ollama-photonicops ollama pull llama3.1:8b
+docker exec -it ollama-photonicops ollama pull llama3.2:3b
 ```
 
 #### Step 4 — Start the Go ingestion server *(Terminal 1)*

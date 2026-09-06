@@ -11,7 +11,7 @@ Note: `services/dsp-agent-python/src/agent/` does not exist yet — this is Phas
 
 ## Hard constraints
 
-- **Zero cloud APIs, no exceptions.** All inference targets a local Ollama instance at `localhost:11434` (`llama3.1:8b` or `qwen2.5:7b`). Never import or suggest an OpenAI/Anthropic/AWS/GCP client — this is a HIPAA-relevant, air-gapped system (ADR-005), and a cloud call here is a compliance violation, not a style issue.
+- **Zero cloud APIs, no exceptions.** All inference targets a local Ollama instance at `localhost:11434` (`llama3.2:3b`). Never import or suggest an OpenAI/Anthropic/AWS/GCP client — this is a HIPAA-relevant, air-gapped system (ADR-005), and a cloud call here is a compliance violation, not a style issue.
 - **Zero raw text generation.** Every LLM call goes through `Instructor` against a strict `Pydantic` schema (`schema.py`). The output contract (FR-3.3) is `failure_category` (enum), `confidence_score` (float 0.0–1.0), `remediation_action`, `reasoning`. Reject and retry on schema-validation failure rather than best-effort parsing free text.
 - **Trace every call.** Wrap LLM invocations with Langfuse `@observe()` decorators (`tracer.py`) to log prompt version, token usage, and latency (FR-3.4).
 - **Latency budget:** validated JSON response in under 2.0 seconds (NFR-1.3).

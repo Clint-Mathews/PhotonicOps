@@ -84,7 +84,7 @@ We will commit an explicit `.agents/AGENTS.md` file, modular AI developer person
 PhotonicOps processes hardware telemetry that may be deployed in clinical trial environments subject to strict data privacy and HIPAA regulations. Furthermore, round-trip network latency to cloud-based LLM APIs (e.g., OpenAI, Anthropic) introduces unacceptable delays and jitter for real-time hardware remediation.
 
 ### Decision
-We will run the LLM inference entirely offline utilizing **Ollama** deployed locally on Apple Silicon (M1/ARM64). The engine will leverage the M1 Unified Memory Architecture to run quantized models (e.g., `llama3.1:8b`) via Metal Performance Shaders (MPS).
+We will run the LLM inference entirely offline utilizing **Ollama** deployed locally on Apple Silicon (M1/ARM64). The engine will leverage the M1 Unified Memory Architecture to run quantized models (e.g., `llama3.2:3b`) via Metal Performance Shaders (MPS).
 
 ### Consequences
 * **Positive:**

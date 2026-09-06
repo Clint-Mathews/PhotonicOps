@@ -91,10 +91,18 @@ services:
       context: ./services/dsp-agent-python
       dockerfile: Dockerfile
     platform: linux/arm64
+    environment:
+      # Container-network address of the `langfuse` service, not the host-facing
+      # LANGFUSE_HOST value in .env (that one is for tools run on the host, e.g.
+      # src/evals/provider.py).
+      - LANGFUSE_HOST=http://langfuse:3000
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
     volumes:
       - /tmp:/tmp # Exposes /tmp/photonicops-dsp.sock to the Go container.
     depends_on:
       - prometheus
+      - langfuse
     restart: unless-stopped
 
 

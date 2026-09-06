@@ -39,7 +39,7 @@ Tasks 2.4 and 4.2 are deferred; each deferral is recorded as an ADR with rationa
 * [x] **Task 0.2:** Scaffold the foundational `docker-compose.yml`.
   * *Constraint:* Must explicitly define `platform: linux/arm64` for all services.
   * *Components:* Prometheus, Grafana, Langfuse (Postgres dependency), and Ollama.
-* [x] **Task 0.3:** Pull the local LLM weights into the Ollama volume (`docker exec -it ollama ollama run llama3.1:8b`).
+* [x] **Task 0.3:** Pull the local LLM weights into the Ollama volume (`docker exec -it ollama ollama run llama3.2:3b`).
 * [x] **Phase Gate:** You can run `docker-compose up -d` and successfully hit the Ollama local API and Langfuse UI at `localhost` with zero x86 Rosetta emulation.
 
 ---
