@@ -93,3 +93,5 @@ langfuse_data/
 *.log
 logs/
 writeups/
+docs/guides
+*results.json

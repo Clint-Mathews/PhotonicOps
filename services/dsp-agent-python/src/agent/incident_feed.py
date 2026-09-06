@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-
+from typing import List
 from src.agent.schema import TriageOutcome
 
 INCIDENT_LOG_PATH = Path("var/incidents.jsonl")

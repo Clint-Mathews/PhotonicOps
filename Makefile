@@ -22,5 +22,8 @@ proto-python:
 	sed -i '' 's/^import telemetry_pb2/from . import telemetry_pb2/' \
 	    services/dsp-agent-python/pb/telemetry_pb2_grpc.py
 
+eval:
+	cd services/dsp-agent-python && PYTHONPATH=. PROMPTFOO_PYTHON=.venv/bin/python3 npx promptfoo@latest eval --env-file ../../.env -j 1 -c src/evals/promptfooconfig.yaml
+	cd services/dsp-agent-python && .venv/bin/python3 src/evals/report.py
 
 proto-all: proto proto-python

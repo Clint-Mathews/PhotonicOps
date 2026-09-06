@@ -1,0 +1,33 @@
+# promptfooconfig.yaml
+description: PhotonicOps agentic triage evaluation suite
+
+providers:
+  - id: file://provider.py
+    label: photonicops-triage-pipeline
+    config:
+      pythonExecutable: .venv/bin/python3
+
+prompts:
+  - "evaluate sensor anomaly"
+
+# Each object in test_cases.json becomes one test run.
+# All fields on the object (sensor_id, wavelength_shift_pm, expected_status, etc.)
+# are available as context.vars in both the provider and the assertions.
+defaultTest:
+  assert:
+    - type: javascript
+      value: |
+        output.status === context.vars.expected_status
+
+    - type: javascript
+      value: |
+        if (context.vars.expected_failure_category === "none") return true;
+        return output.failure_category === context.vars.expected_failure_category;
+    - type: javascript
+      value: |
+        if (!context.vars.expected_remediation_action) return true;
+        return output.remediation_action === context.vars.expected_remediation_action;
+
+tests: file://test_cases.json
+
+outputPath: results.json

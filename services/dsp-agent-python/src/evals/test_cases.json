@@ -1,0 +1,105 @@
+[
+    {
+        "vars": {
+            "class": "clean",
+            "sensor_id": "ring-01",
+            "wavelength_shift_pm": [0.1, -0.2, 0.15, -0.1, 0.05],
+            "expected_status": "REQUIRES_MANUAL_REVIEW",
+            "expected_failure_category": "NORMAL_NOISE",
+            "notes": "Pure baseline noise. Confidence in NORMAL_NOISE should still clear threshold for auto-execution of NO_ACTION, or route to manual review depending on scoring."
+        }
+    },
+    {
+        "vars": {
+            "class": "clean",
+            "sensor_id": "ring-02",
+            "wavelength_shift_pm": [1.0, 2.0, 480.0, 495.0, 500.0, 250.0, 10.0],
+            "expected_status": "AUTO_EXECUTED",
+            "expected_failure_category": "MICROFLUIDIC_BUBBLE",
+            "expected_remediation_action": "FLUSH_VALVE",
+            "notes": "Unambiguous +500pm bubble spike matching simulate_sensor.go injected pattern. Should classify cleanly and clear the confidence threshold."
+        }
+    },
+    {
+        "vars": {
+            "class": "noisy",
+            "sensor_id": "ring-03",
+            "wavelength_shift_pm": [0.8, 1.9, 380.0, 470.0, 510.0, 300.0, 40.0],
+            "expected_status": "AUTO_EXECUTED",
+            "expected_failure_category": "MICROFLUIDIC_BUBBLE",
+            "notes": "Same bubble pattern with added noise jitter. Tests robustness, not just clean-signal accuracy."
+        }
+    },
+    {
+        "vars": {
+            "class": "noisy",
+            "sensor_id": "ring-04",
+            "wavelength_shift_pm": [4.9, 5.1, 4.8, 5.3, 5.0, 4.95],
+            "expected_status": "REQUIRES_MANUAL_REVIEW",
+            "expected_failure_category": "THERMAL_DRIFT",
+            "notes": "Slow drift near the +/-5pm/hr envelope. A naive classifier might mistake it for a low-magnitude event."
+        }
+    },
+    {
+        "vars": {
+            "class": "ambiguous",
+            "sensor_id": "ring-05",
+            "wavelength_shift_pm": [2.0, 15.0, 40.0, 25.0, 8.0],
+            "expected_status": "REQUIRES_MANUAL_REVIEW",
+            "expected_failure_category": "none",
+            "notes": "Mid-magnitude spike that does not cleanly match bubble or drift profiles. A confident wrong answer here is the failure mode this case exists to catch."
+        }
+    },
+    {
+        "vars": {
+            "class": "ambiguous",
+            "sensor_id": "ring-06",
+            "wavelength_shift_pm": [3.0, 3.2, 3.1, 60.0, 58.0, 3.3],
+            "expected_status": "REQUIRES_MANUAL_REVIEW",
+            "expected_failure_category": "none",
+            "notes": "Could plausibly read as PHOTONIC_ALIGNMENT_LOSS or a small bubble. Score on whether the agent defers, not which category it guessed."
+        }
+    },
+    {
+        "vars": {
+            "class": "adversarial",
+            "sensor_id": "ring-07",
+            "wavelength_shift_pm": [500.0, 500.0, 500.0, 500.0, 500.0],
+            "expected_status": "REQUIRES_MANUAL_REVIEW",
+            "expected_failure_category": "none",
+            "notes": "Implausibly flat 500pm plateau, not the pulse-then-decay bubble shape. Checks the agent does not pattern-match on magnitude alone with false confidence."
+        }
+    },
+    {
+        "vars": {
+            "class": "adversarial",
+            "sensor_id": "ring-08",
+            "wavelength_shift_pm": [],
+            "expected_status": "REQUIRES_MANUAL_REVIEW",
+            "expected_failure_category": "none",
+            "notes": "Empty input window. Tests that the pipeline fails safe on bad input rather than the LLM hallucinating a confident category."
+        }
+    },
+    {
+        "vars": {
+            "class": "adversarial",
+            "sensor_id": "ring-09",
+            "wavelength_shift_pm": [500.0, 495.0, 505.0, 498.0],
+            "simulate_ollama_unreachable": true,
+            "expected_status": "REQUIRES_MANUAL_REVIEW",
+            "expected_failure_category": "none",
+            "notes": "Fail-safe path: Ollama unreachable. Even a clean bubble signal must defer when the LLM is down."
+        }
+    },
+    {
+        "vars": {
+            "class": "adversarial",
+            "sensor_id": "ring-10",
+            "wavelength_shift_pm": [500.0, 495.0, 505.0, 498.0],
+            "simulate_timeout": true,
+            "expected_status": "REQUIRES_MANUAL_REVIEW",
+            "expected_failure_category": "none",
+            "notes": "Fail-safe path: timeout. Same clean bubble signal, but the call exceeds the 2.0s budget."
+        }
+    }
+]
