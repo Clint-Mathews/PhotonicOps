@@ -103,14 +103,17 @@ We will run the LLM inference entirely offline utilizing **Ollama** deployed loc
 NFR-3.1 and the offline/HIPAA posture require locking down any network-exposed listener before real hardware or clinical data touches it. mTLS was originally scoped as a hard prerequisite before Phase 2 could start. Enforcing certificate issuance, rotation, and client verification before Phase 2A's DSP handoff even existed would have blocked every downstream phase on a task orthogonal to proving the ingestion → DSP → triage pipeline end-to-end.
 
 ### Decision
-Phase 1 and Phase 2A ship the ingestion gRPC server and `scripts/simulate_sensor.go` using `insecure.NewCredentials()`. mTLS — local self-signed CA via `scripts/generate_certs.sh`, no external ACME dependency — is deferred to Phase 5, Task 5.1, and is a hard gate before any deployment against real clinical hardware or a shared network segment.
+Phase 1 and Phase 2A shipped the ingestion gRPC server and `scripts/simulate_sensor.go` using `insecure.NewCredentials()` so DSP/triage work was not blocked on certificate lifecycle tooling. mTLS — local self-signed CA via `scripts/generate_certs.sh`, no external ACME — was deferred to Phase 5, Task 5.1, as a hard gate before any deployment against real clinical hardware or a shared network segment.
+
+### Status
+Task 5.1 is implemented on the TCP sensor listener (`:50051`): `internal/grpc.ServerTLS` requires and verifies a client certificate (TLS 1.3); `scripts/simulate_sensor.go` presents the issued client cert. `insecure.NewCredentials()` remains only on the Unix-domain DSP forwarder (ADR-007). Keys and certs under `certs/` are gitignored.
 
 ### Consequences
 * **Positive:**
   * Unblocks Phase 2A/3/4A on the critical path without waiting on certificate lifecycle tooling.
-* **Negative:**
-  * The current transport is not representative of the target security posture; every phase between now and Phase 5 must be treated as dev-only and never exposed off a single trusted host.
-  * Satisfies FR-1.5 only once Task 5.1 is complete — until then FR-1.5 is a known open gap, not a met requirement.
+* **Negative (historical, until Task 5.1):**
+  * The plaintext transport was not representative of the target security posture; every phase between Phase 1 and Task 5.1 had to be treated as dev-only and never exposed off a single trusted host.
+  * FR-1.5 was an open gap until Task 5.1.
 
 ---
 

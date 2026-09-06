@@ -133,22 +133,23 @@ After this gate the agentic triage system may be described as built, not archite
 ## [ ] Phase 5: Ingestion Hardening
 **Goal:** Close the remaining SRS gaps required before any production deployment.
 
-Task 5.1 (mTLS) must be completed before any deployment against real clinical hardware or a shared network segment; plaintext transport is acceptable on a local single host until then (ADR-006).
+Task 5.1 closed the plaintext sensor listener. Remaining Phase 5 work is Task 5.5 (ARM64 CI artifact) and the phase-gate checks that still depend on it.
 
-* [ ] **Task 5.1: Transport Security**
-  * mTLS on the ingestion gRPC server and mock sensor client, replacing `insecure.NewCredentials()`.
-  * Local self-signed CA, no external ACME dependency. `scripts/generate_certs.sh` already exists.
+* [x] **Task 5.1: Transport Security**
+  * mTLS on the ingestion gRPC server and mock sensor client, replacing `insecure.NewCredentials()` on TCP.
+  * Local self-signed CA, no external ACME dependency. `scripts/generate_certs.sh` writes `certs/{ca,server,client}.{crt,key}`.
+  * Unix-domain DSP socket is unchanged (ADR-007). Handshake unit tests on a throwaway listener are still a follow-up.
   * Satisfies FR-1.5 / ADR-006. *AI Persona:* `@go-architect`
-* [ ] **Task 5.2: Prometheus Metrics Endpoint**
-  * Export `/metrics`: frames/sec, `jobQueue` depth, ring buffer occupancy.
+* [x] **Task 5.2: Prometheus Metrics Endpoint**
+  * Export `/metrics` on `:2112`: frames received, `jobQueue` depth, ring occupancy, frames dropped.
   * Required before Phase 4B Task 4.3 Grafana wiring can be completed.
   * Satisfies FR-1.4 / NFR-6.1.
-* [ ] **Task 5.3: Load-Shedding Mode**
-  * Opt-in non-blocking `select`/`default` send path in `internal/worker/pool.go::Enqueue` per `docs/FAQ/PHASE1.md` Q5, behind a `--load-shed` startup flag.
-  * Verify under artificial backlog; measure and document what gets dropped and when.
+* [x] **Task 5.3: Load-Shedding Mode**
+  * Opt-in non-blocking `select`/`default` send path in `internal/worker/pool.go::Enqueue` per `docs/FAQ/PHASE1.md` Q5–Q6, behind a `--load-shed` startup flag.
+  * Default remains blocking backpressure. Load-shed drops the newest `jobQueue` frame after `Push`.
   * Satisfies FR-1.3.
-* [ ] **Task 5.4: Per-Sensor Ring Buffer Sharding**
-  * Key `internal/buffer.RingBuffer` by `sensor_id` (or size it for concurrent multi-sensor retention) so historical depth doesn't collapse under NFR-4.1 load.
+* [x] **Task 5.4: Per-Sensor Ring Buffer Sharding**
+  * `internal/buffer.ShardedRingBuffer` keys a 10k-slot `RingBuffer` by `sensor_id`.
   * Satisfies NFR-4.2.
 * [ ] **Task 5.5: CI ARM64 Build Target**
   * Fix the `build-binary` job in `.github/workflows/ci-ingestion-go.yml` to produce a `linux/arm64` artifact alongside `linux/amd64`.

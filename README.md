@@ -135,7 +135,14 @@ deactivate
 cd ../..
 ```
 
-#### Step 3 — Start the supporting infrastructure
+#### Step 3 — Generate local mTLS certificates
+The sensor TCP listener (`:50051`) requires mutual TLS (TLS 1.3, local self-signed CA). The Go→Python DSP hop on `unix:///tmp/photonicops-dsp.sock` stays plaintext (ADR-007). Certificates under `certs/` are gitignored. Run this **before** `docker-compose up` so the `ingestion-go` container can mount `./certs`.
+```bash
+./scripts/generate_certs.sh
+```
+You should see: `wrote .../certs/{ca,server,client}.{crt,key}`
+
+#### Step 4 — Start the supporting infrastructure
 Spins up Ollama (local LLM), Langfuse (LLM tracing), Prometheus, and Grafana in Docker containers in the background. Wait ~30 seconds for all services to be healthy before proceeding.
 ```bash
 docker-compose up -d
@@ -147,14 +154,19 @@ docker-compose ps
 docker exec -it ollama-photonicops ollama pull llama3.2:3b
 ```
 
-#### Step 4 — Start the Go ingestion server *(Terminal 1)*
-Starts the high-throughput gRPC server that listens on port `50051` for incoming sensor frames. It maintains a zero-allocation ring buffer per sensor and a worker pool to forward batches to the Python DSP agent over a Unix socket.
+#### Step 5 — Start the Go ingestion server *(Terminal 1)*
+Starts the high-throughput gRPC server that listens on port `50051` for incoming sensor frames. It maintains a per-sensor ring buffer, a worker pool that forwards batches to the Python DSP agent over a Unix socket, and Prometheus metrics on `:2112`.
 ```bash
-go run services/ingestion-go/cmd/server/main.go
+go run services/ingestion-go/cmd/server/main.go \
+  --ca-path certs/ca.crt \
+  --cert-path certs/server.crt \
+  --key-path certs/server.key
 ```
-You should see: `gRPC server listening on :50051`
+Optional: `--load-shed` drops the newest worker-queue frame when `jobQueue` is full (blocking backpressure remains the default).
 
-#### Step 5 — Start the Python DSP agent *(Terminal 2)*
+You should see: `gRPC Ingestion Server listening on :50051`
+
+#### Step 6 — Start the Python DSP agent *(Terminal 2)*
 Activates the virtual environment, then starts the Python signal-processing service. It opens a Unix domain socket at `/tmp/photonicops-dsp.sock` and waits for the Go server to forward frame batches. Each batch is run through the Kalman filter → baseline subtraction → spike detector pipeline.
 ```bash
 cd services/dsp-agent-python
@@ -163,19 +175,23 @@ python -m src.main
 ```
 You should see: `DSP IPC server listening on unix: /tmp/photonicops-dsp.sock`
 
-#### Step 6 — Run the mock sensor *(Terminal 3)*
-Blasts synthetic biosensor data at 10,000 frames/sec over gRPC to the Go server. The mock signal includes realistic thermal drift and injected bubble spikes so the full DSP pipeline can be validated end-to-end without physical hardware.
+#### Step 7 — Run the mock sensor *(Terminal 3)*
+Blasts synthetic biosensor data at 10,000 frames/sec over mTLS gRPC to the Go server. The mock signal includes realistic thermal drift and injected bubble spikes so the full DSP pipeline can be validated end-to-end without physical hardware.
 ```bash
-go run scripts/simulate_sensor.go
+go run scripts/simulate_sensor.go \
+  --ca-path certs/ca.crt \
+  --cert-path certs/client.crt \
+  --key-path certs/client.key
 ```
-You should see spike warnings appear in the Python DSP terminal as the injected anomalies are detected.
+You should see spike warnings appear in the Python DSP terminal as the injected anomalies are detected. A client without the issued cert (or using plaintext gRPC) is rejected at handshake.
 
-#### Step 7 — Verify the observability stack *(optional)*
+#### Step 8 — Verify the observability stack *(optional)*
 | Service | URL | What it shows |
 |---|---|---|
+| Ingestion `/metrics` | http://localhost:2112/metrics | `photonicops_ingestion_*` counters and gauges |
 | Langfuse | http://localhost:3000 | LLM triage decision traces |
 | Grafana | http://localhost:3001 | Ingestion throughput metrics |
-| Prometheus | http://localhost:9090 | Raw metrics scrape targets |
+| Prometheus | http://localhost:9090 | Raw metrics scrape targets (`ingestion-go` scrapes `:2112`) |
 
 #### Running the DSP test suite
 ```bash

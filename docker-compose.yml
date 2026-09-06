@@ -83,6 +83,12 @@ services:
       # Share the host /tmp so the Unix domain socket
       # (/tmp/photonicops-dsp.sock) is visible to both services.
       - /tmp:/tmp
+      # Host-generated mTLS material (run ./scripts/generate_certs.sh first).
+      - ./certs:/certs:ro
+    command:
+      - --ca-path=/certs/ca.crt
+      - --cert-path=/certs/server.crt
+      - --key-path=/certs/server.key
     depends_on:
       - dsp-agent-python  # Python DSP process must be listening before Go dials the socket.
     restart: unless-stopped

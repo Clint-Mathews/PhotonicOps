@@ -2,19 +2,54 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"flag"
+	"fmt"
 	"log"
 	"math/rand/v2"
+	"os"
 	"time"
 
 	"github.com/Clint-Mathews/PhotonicOps/services/ingestion-go/pb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
+func clientTLS(caFile, certFile, keyFile string) (credentials.TransportCredentials, error) {
+	ca, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("read CA: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(ca) {
+		return nil, fmt.Errorf("parse CA")
+	}
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load client cert: %w", err)
+	}
+	cfg := &tls.Config{
+		RootCAs:      pool,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS13,
+		ServerName:   "localhost",
+	}
+	return credentials.NewTLS(cfg), nil
+}
+
 func main() {
-	// 1. Connect to the Ingestion Server (No TLS required for local testing)
+	caPath := flag.String("ca-path", "certs/ca.crt", "path to CA certificate")
+	certPath := flag.String("cert-path", "certs/client.crt", "path to client certificate")
+	keyPath := flag.String("key-path", "certs/client.key", "path to client private key")
+	flag.Parse()
+
 	log.Println("Connecting to ingeston server at localhost:50051...")
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	creds, err := clientTLS(*caPath, *certPath, *keyPath)
+	if err != nil {
+		log.Fatalf("mtls: %v", err)
+	}
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

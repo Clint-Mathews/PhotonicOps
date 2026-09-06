@@ -8,13 +8,13 @@ This document captures the core architectural concepts, concurrency mechanics, a
 
 ```mermaid
 flowchart TD
-    Sensor["Mock Sensor (scripts/simulate_sensor.go)"] -- "gRPC Stream (10kHz)" --> Main["cmd/server/main.go"]
+    Sensor["Mock Sensor (scripts/simulate_sensor.go)"] -- "mTLS gRPC Stream (10kHz)" --> Main["cmd/server/main.go"]
     
     subgraph "Go Ingestion Engine"
-        Main -- "Listens on :50051" --> GRPC_Core["telemetry_grpc.pb.go (Auto-generated)"]
+        Main -- "Listens on :50051 (mTLS)" --> GRPC_Core["telemetry_grpc.pb.go (Auto-generated)"]
         GRPC_Core -- "Unmarshals Bytes to Struct" --> StreamGo["internal/grpc/stream.go"]
         
-        StreamGo -- "1. s.Ring.Push()" --> RingBuffer[("internal/buffer/ringbuffer.go")]
+        StreamGo -- "1. s.Ring.Push()" --> RingBuffer[("internal/buffer/sharded.go")]
         StreamGo -- "2. s.Worker.Enqueue()" --> JobChannel["internal/worker/pool.go : jobQueue"]
         
         JobChannel -- "Pops frame" --> Worker1(("10 Worker Goroutines"))
@@ -23,16 +23,18 @@ flowchart TD
     end
     
     subgraph "Monitoring"
-        Main -- "HTTP :6060" --> Pprof["net/http/pprof"]
+        Main -- "HTTP localhost:6060" --> Pprof["net/http/pprof"]
+        Main -- "HTTP :2112" --> Metrics["/metrics"]
     end
 ```
 
 ### How the Files Connect
 1. **`pb/telemetry.pb.go` & `pb/telemetry_grpc.pb.go`**: Auto-generated files that translate raw network bytes into Go structs.
-2. **`cmd/server/main.go`**: The entrypoint that creates the RingBuffer and WorkerPool, passes them to the custom gRPC server, and opens TCP port 50051.
-3. **`internal/grpc/stream.go`**: The "traffic cop". It catches incoming frames in an endless loop and pushes them to both the RingBuffer and the WorkerPool channel.
-4. **`internal/buffer/ringbuffer.go`**: A fixed-size array holding the last 1 second of data without triggering allocations.
-5. **`internal/worker/pool.go`**: Holds a `jobQueue` channel and 10 goroutines. The workers continuously pull frames off the queue and process them using a shared `sync.Pool` to avoid memory allocations.
+2. **`cmd/server/main.go`**: The entrypoint that creates the sharded ring and worker pool, loads mTLS creds, and opens TCP port 50051.
+3. **`internal/grpc/mtls.go`**: Server TLS helper (`RequireAndVerifyClientCert`, TLS 1.3).
+4. **`internal/grpc/stream.go`**: The "traffic cop". It catches incoming frames in an endless loop and pushes them to both the ring and the worker pool channel.
+5. **`internal/buffer/ringbuffer.go` / `sharded.go`**: Fixed-size circular buffer per `sensor_id` holding ~1 second of data without triggering allocations on `Push`.
+6. **`internal/worker/pool.go`**: Holds a `jobQueue` channel and 10 goroutines. Default `Enqueue` blocks; `--load-shed` drops when full.
 
 ---
 
@@ -58,12 +60,10 @@ Because we are using a standard channel send (`p.jobQueue <- frame`), the system
 3. The underlying Operating System TCP buffer starts to fill up with incoming sensor data.
 4. Once the OS buffer is full, TCP automatically drops its window size to 0, sending a signal to the mock sensor client: *"My buffer is full, stop sending data."*
 
-The network connection naturally throttles the client. To change this behavior to drop data instead of blocking the network, you would implement **Load Shedding** using a non-blocking `select` statement:
-```go
-select {
-case p.jobQueue <- frame:
-    // Success
-default:
-    // Channel full, drop frame
-}
-```
+The network connection naturally throttles the client. That is still the **default**.
+
+### Q6: What does `--load-shed` drop, and in what order relative to the ring buffer?
+`--load-shed` switches `Enqueue` to a non-blocking `select`/`default`. When `jobQueue` is full, the **newest** frame (the one that could not enqueue) is dropped and `photonicops_ingestion_frames_dropped_total` increments. `StreamTelemetry` still calls `Push` before `Enqueue`, so the UI ring retains the frame even when DSP work is shed. Blocking backpressure remains the default when the flag is off.
+
+### Q7: How do the mock sensor and ingestion server authenticate?
+The TCP listener requires mutual TLS (TLS 1.3). Issue a local CA with `./scripts/generate_certs.sh`, then start the server with `certs/server.{crt,key}` and the mock sensor with `certs/client.{crt,key}`. Plaintext gRPC clients fail the handshake. The Unix-domain DSP socket does not use mTLS.

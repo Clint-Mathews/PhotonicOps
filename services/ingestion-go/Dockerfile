@@ -30,6 +30,7 @@ COPY --from=builder /bin/ingestion-server /ingestion-server
 
 EXPOSE 50051
 EXPOSE 6060
+EXPOSE 2112
 
 USER nonroot
 

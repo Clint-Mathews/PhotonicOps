@@ -17,10 +17,11 @@ You are working on PhotonicOps's Go ingestion engine, which must sustain 10,000 
 
 ## Known open work (don't assume these are already handled)
 
-- **Transport is currently insecure** (`insecure.NewCredentials()` in `cmd/server/main.go` and `scripts/simulate_sensor.go`). ADR-006 commits to mTLS via a local self-signed CA; this is unimplemented (Roadmap Phase 1.5, Task 1.5.1). If asked to touch connection setup, this is the direction to build toward, not away from.
-- **`FramePool.Enqueue` only blocks** on a full channel today. ADR/Roadmap call for an opt-in non-blocking `select`/`default` load-shedding mode (FR-1.3, Task 1.5.3) — implement as an additive flag, not a replacement, since blocking backpressure is the documented default behavior.
-- **No `/metrics` endpoint exists** — only `pprof` on `:6060`. Adding Prometheus counters (frames/sec, queue depth, ring buffer occupancy) is Task 1.5.2.
-- **`RingBuffer` is a single global buffer, not keyed by `sensor_id`.** At multi-sensor scale this collapses retained history far below the intended ~1 second (NFR-4.2). If working on multi-sensor support, sharding the ring buffer per sensor is the documented fix (Task 1.5.4).
-- **The Go→Python handoff (Phase 2) is a Unix domain socket gRPC service**, not yet built (ADR-007). Don't invent a different transport (HTTP, message queue) for that boundary.
+- **Sensor TCP is mTLS.** `cmd/server/main.go` and `scripts/simulate_sensor.go` use local CA certs (`scripts/generate_certs.sh`). Do not reintroduce `insecure.NewCredentials()` on `:50051`. The Unix-domain DSP forwarder stays insecure (ADR-007).
+- **`--load-shed` is opt-in.** Default `Enqueue` still blocks. Do not flip the default to drop.
+- **`/metrics` is on `:2112`.** pprof stays on `localhost:6060`. Do not merge them onto one mux.
+- **Ring history is sharded** via `ShardedRingBuffer` (one 10k `RingBuffer` per `sensor_id`). Keep `Push` allocation-free after the first sighting of a sensor.
+- **Task 5.5:** CI `build-binary` still produces linux/amd64 only; add arm64 alongside, do not delete amd64.
+- Handshake tests (insecure client must fail; issued cert must stream on `127.0.0.1:0`) are still a follow-up to Task 5.1.
 
 Before making a design call not covered above, check `docs/ADR.md` and `docs/ROADMAP.md` — this service has an active architecture-review trail and decisions are usually already made, just not yet implemented.

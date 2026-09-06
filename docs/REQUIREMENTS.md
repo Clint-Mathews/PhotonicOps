@@ -34,9 +34,9 @@ v
 ### Module 1: Telemetry Ingestion Engine (Go)
 * **FR-1.1 (High-Frequency Streaming):** Ingest raw optical wavelength shift telemetry (Δλ in picometers) over gRPC streams at a target rate of 10,000 samples/second per channel.
 * **FR-1.2 (Concurrent Processing):** Implement a bounded goroutine worker pool with zero-allocation ring buffers and `sync.Pool` to prevent memory allocation overhead and garbage collection pauses during peak throughput.
-* **FR-1.3 (Backpressure & Buffering):** Apply channel-based backpressure to the worker pool queue. The default mode blocks the producer (natural TCP backpressure to the sensor, per `docs/FAQ/PHASE1.md` Q5). An opt-in non-blocking load-shedding mode is available behind a `--load-shed` startup flag. *(Status: blocking mode implemented in `internal/worker/pool.go`; load-shedding mode is Roadmap Phase 5 Task 5.3.)*
-* **FR-1.4 (Metrics Endpoint):** Expose a Prometheus-scrapeable `/metrics` endpoint reporting frames/sec, worker-pool `jobQueue` depth, and ring buffer occupancy. *(Status: not yet implemented — Roadmap Phase 5 Task 5.2.)*
-* **FR-1.5 (Transport Security):** The ingestion gRPC server and its clients must authenticate via mutual TLS using a local self-signed CA, replacing the development-only `insecure.NewCredentials()` transport. See ADR-006. *(Status: deferred — Roadmap Phase 5 Task 5.1. Hard gate before deployment against real clinical hardware or a shared network segment.)*
+* **FR-1.3 (Backpressure & Buffering):** Apply channel-based backpressure to the worker pool queue. The default mode blocks the producer (natural TCP backpressure to the sensor, per `docs/FAQ/PHASE1.md` Q5). An opt-in non-blocking load-shedding mode is available behind a `--load-shed` startup flag. *(Status: implemented — blocking default plus `--load-shed` in `internal/worker/pool.go`; see FAQ Q6 for drop policy.)*
+* **FR-1.4 (Metrics Endpoint):** Expose a Prometheus-scrapeable `/metrics` endpoint reporting frames/sec, worker-pool `jobQueue` depth, and ring buffer occupancy. *(Status: implemented on `:2112` — Roadmap Phase 5 Task 5.2. Grafana DSP/agent panels remain Phase 4B Task 4.3.)*
+* **FR-1.5 (Transport Security):** The ingestion gRPC server and its clients must authenticate via mutual TLS using a local self-signed CA, replacing the development-only `insecure.NewCredentials()` transport. See ADR-006. *(Status: implemented on the TCP sensor listener — Roadmap Phase 5 Task 5.1. The Unix-domain DSP hop stays insecure per ADR-007.)*
 
 ### Module 2: Signal Cleansing & Anomaly Classifier (Python)
 * **FR-2.1 (Noise Cleansing):** Implement real-time 1D Kalman Filtering and moving-average baseline subtraction to eliminate thermal drift and ambient optical interference.
@@ -83,7 +83,7 @@ v
 
 ### NFR-4: Throughput & Scalability
 * **NFR-4.1:** The ingestion layer must scale horizontally to handle up to 50 concurrent simulated chip streams (500,000 samples/sec aggregate).
-* **NFR-4.2:** The ring buffer (`internal/buffer.RingBuffer`) must retain approximately 1 second of history *per sensor*, not per instance. The current implementation is a single global buffer keyed by insertion order, not `sensor_id`; at NFR-4.1 scale this would retain roughly 20ms of aggregate history and interleave sensors. Sharding the buffer by `sensor_id` (or sizing it to `10,000 * expected_concurrent_streams`) is required before NFR-4.1 can be considered met.
+* **NFR-4.2:** The ring buffer must retain approximately 1 second of history *per sensor*, not per instance. Implemented as `internal/buffer.ShardedRingBuffer` (one 10,000-slot `RingBuffer` per `sensor_id`). The unsharded `RingBuffer` type remains the per-sensor shard.
 
 ### NFR-5: Reliability & Determinism
 * **NFR-5.1:** The system must achieve 0% schema validation failures on LLM diagnostic responses through automated retries and strict Pydantic parsing.

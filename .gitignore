@@ -95,3 +95,9 @@ logs/
 writeups/
 docs/guides
 *results.json
+certs/
+certs/*.key
+certs/*.crt
+certs/*.srl
+certs/*.csr
+!certs/.gitkeep

@@ -19,7 +19,12 @@ import (
 )
 
 func main() {
-	// 1. Start pprof in the background for memory profiling and prometheus for metrics
+	loadShed := flag.Bool("load-shed", false, "drop frames when jobQueue is full instead of blocking")
+	caPath := flag.String("ca-path", "certs/ca.crt", "path to CA certificate")
+	certPath := flag.String("cert-path", "certs/server.crt", "path to server certificate")
+	keyPath := flag.String("key-path", "certs/server.key", "path to server private key")
+	flag.Parse()
+
 	go func() {
 		log.Println("Starting pprof debug server on :6060")
 		log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -28,13 +33,10 @@ func main() {
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
-		log.Println("Prometheus metrics on : 2112")
+		log.Println("Prometheus metrics on :2112")
 		log.Println(http.ListenAndServe(":2112", mux))
 	}()
 
-	// 2. Initialize our Zero-Alloc components
-	loadShed := flag.Bool("load-shead", false, "drop frames when jobQueue is full instead of blocking")
-	flag.Parse()
 	ring := buffer.NewShardedRingBuffer(10000) // Hold last 1 second of data per sensor
 	forwarder, err := dsp.NewForwarder()
 	if err != nil {
@@ -47,13 +49,17 @@ func main() {
 		func() float64 { return float64(ring.Occupancy()) },
 	)
 
-	// 3. Setup gRPC ``Server
+	tlsCreds, err := mygrpc.ServerTLS(*caPath, *certPath, *keyPath)
+	if err != nil {
+		log.Fatalf("mtls: %v", err)
+	}
+
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.Creds(tlsCreds))
 	telemetryServer := &mygrpc.Server{
 		Ring:   ring,
 		Worker: pool,
