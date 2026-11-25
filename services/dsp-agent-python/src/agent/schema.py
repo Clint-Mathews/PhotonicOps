@@ -5,8 +5,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from hashlib import sha256
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 class FailureCategory(str, Enum):
     MICROFLUIDIC_BUBBLE = "MICROFLUIDIC_BUBBLE"
@@ -38,6 +39,7 @@ class TriageOutcome(BaseModel):
     """Result of running a RemediationDecision through the fail-safe 
     state machine. This not RemediationDecision, is what gets persisted
     to the audit log and the incident feed."""
+    id: str | None = None
     status: TriageStatus
     decision: RemediationDecision | None
     reason: str
@@ -45,3 +47,9 @@ class TriageOutcome(BaseModel):
     window_start_ns: int
     evaluated_at: datetime
 
+    @model_validator(mode="after")
+    def assign_stable_id(self) -> "TriageOutcome":
+        if self.id is None:
+            value = f"{self.sensor_id}:{self.window_start_ns}:{self.evaluated_at.isoformat()}"
+            self.id = sha256(value.encode("utf-8")).hexdigest()[:24]
+        return self

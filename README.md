@@ -173,7 +173,7 @@ cd services/dsp-agent-python
 source .venv/bin/activate
 python -m src.main
 ```
-You should see: `DSP IPC server listening on unix: /tmp/photonicops-dsp.sock`
+You should see: `DSP IPC server listening on unix: /tmp/photonicops-dsp.sock`. The local dashboard API is on `:8000`, the WebSocket is `/ws/signal`, and Python metrics are on `:8001`.
 
 #### Step 7 — Run the mock sensor *(Terminal 3)*
 Blasts synthetic biosensor data at 10,000 frames/sec over mTLS gRPC to the Go server. The mock signal includes realistic thermal drift and injected bubble spikes so the full DSP pipeline can be validated end-to-end without physical hardware.
@@ -189,9 +189,12 @@ You should see spike warnings appear in the Python DSP terminal as the injected 
 | Service | URL | What it shows |
 |---|---|---|
 | Ingestion `/metrics` | http://localhost:2112/metrics | `photonicops_ingestion_*` counters and gauges |
+| DSP `/metrics` | http://localhost:8001/metrics | DSP and triage histograms/counters |
+| Dashboard | http://localhost:5173 | Live signal canvas and manual-review queue |
+| DSP health | http://localhost:8000/healthz | Local API readiness |
 | Langfuse | http://localhost:3000 | LLM triage decision traces |
-| Grafana | http://localhost:3001 | Ingestion throughput metrics |
-| Prometheus | http://localhost:9090 | Raw metrics scrape targets (`ingestion-go` scrapes `:2112`) |
+| Grafana | http://localhost:3001 | Provisioned ingestion, DSP, and triage panels |
+| Prometheus | http://localhost:9090 | Local metrics scrape targets |
 
 #### Running the DSP test suite
 ```bash

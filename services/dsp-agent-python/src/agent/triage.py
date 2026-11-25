@@ -7,6 +7,7 @@ for the state machine wrapping this call."""
 from __future__ import annotations
 
 import instructor
+import os
 from instructor.core.exceptions import InstructorRetryException
 from openai import OpenAI, APIConnectionError, APITimeoutError
 
@@ -17,7 +18,7 @@ from src.agent.exceptions import (
 )
 from src.agent.schema import RemediationDecision
 
-OLLAMA_BASE_URL = "http://localhost:11434/v1"
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 MODEL_NAME = "llama3.2:3b"
 REQUEST_TIMEOUT_S = 2.0
 MAX_SCHEMA_RETRIES = 2

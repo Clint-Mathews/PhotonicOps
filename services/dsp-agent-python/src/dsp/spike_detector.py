@@ -38,7 +38,7 @@ def detect_spikes(
             f"timestamps shape {timestamps_ns.shape}"
         )
     if wavelengths.size <2:
-        empty = np.zero(0)
+        empty = np.zeros(0)
         return SpikeReport(sensor_id, empty.astype(bool), empty.astype(np.int64), empty)
     
     d_lambda = np.diff(wavelengths)
@@ -55,4 +55,3 @@ def detect_spikes(
         spike_timestamp_ns=timestamps_ns[1:][mask],
         derivative_pm_per_s=derivative,
     )
-

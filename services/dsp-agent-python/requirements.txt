@@ -14,3 +14,6 @@ pydantic>=2.7.0,<3.0.0
 openai>=1.30.0,<2.0.0   # HTTP client only — talks to Ollama's OpenAI-compatible /v1 endpoint, no OpenAI account/key involved
 langfuse>=2.36.0,<3.0.0
 psycopg[binary]>=3.1.0,<4.0.0   # If Postgres is choosen over the Langfuse DB (For later)
+prometheus-client>=0.26.0
+fastapi>=0.115.0,<1.0.0
+uvicorn>=0.34.0,<1.0.0

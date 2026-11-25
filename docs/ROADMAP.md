@@ -161,18 +161,19 @@ Task 5.1 closed the plaintext sensor listener. Remaining Phase 5 work is Task 5.
 ## [ ] Phase 4B: Observability & Dashboard
 **Goal:** Expose internal system state visually.
 
-* [ ] **Task 4.2: Real-Time UI**
+* [x] **Task 4.2: Real-Time UI**
   * React/TypeScript dashboard in `services/dashboard-ui/`.
   * HTML5 Canvas or WebGL chart (Chart.js or similar) over WebSockets, plotting Raw vs. Filtered signal at 30 FPS.
   * Promote the Task 3.4b incident-feed stub into the full manual-review queue.
   * Satisfies FR-4.1 / FR-4.2.
-* [ ] **Task 4.3: Prometheus Integration**
+* [x] **Task 4.3: Prometheus Integration**
   * Wire remaining DSP/agent processing-time metrics to Prometheus/Grafana. (Go ingestion `/metrics` shipped in Task 5.2.)
   * Satisfies FR-4.3.
-* [ ] **Task 4.4: AI-Reviewed CI/CD Gate**
+* [x] **Task 4.4: AI-Reviewed CI/CD Gate**
   * Add `.github/workflows/ai-review.yml` (referenced in `structure.txt`, not yet present) — scan PRs for data-privacy regressions (reintroduced cloud API calls, disabled mTLS) and `.agents/AGENTS.md` constraint violations.
   * Satisfies FR-5.2.
 * [ ] **Phase Gate (4B):** Dashboard renders at 30 FPS without crashing the tab · manual-review queue functional · AI-review CI gate active on PRs.
+  * Automated API, WebSocket, policy-scanner, frontend-build, Compose-config, and unit-test checks pass; browser/PR branch-protection verification remains an environment-level check.
 
 ---
 

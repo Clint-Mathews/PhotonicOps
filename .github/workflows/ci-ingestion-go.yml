@@ -87,18 +87,6 @@ jobs:
           path: services/ingestion-go/coverage.out
           retention-days: 14
 
-      # Publish coverage to Codecov. The token is injected from repository
-      # secrets; set CODECOV_TOKEN in Settings → Secrets → Actions.
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: services/ingestion-go/coverage.out
-          flags: ingestion-go
-          name: ingestion-go-go${{ matrix.go-version }}
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
   build-binary:
     name: Build Binary (${{ matrix.goarch }})
     runs-on: ubuntu-latest

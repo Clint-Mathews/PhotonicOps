@@ -95,6 +95,8 @@ logs/
 writeups/
 docs/guides
 *results.json
+node_modules/
+*.tsbuildinfo
 certs/
 certs/*.key
 certs/*.crt

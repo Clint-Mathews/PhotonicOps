@@ -1,0 +1,24 @@
+name: AI constraint review
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  privacy-and-constraints:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install scanner test dependency
+        run: python3 -m pip install pytest
+      - name: Scan for cloud API and transport regressions
+        run: python3 scripts/check_no_cloud_llm.py
+      - name: Test the policy scanner
+        run: python3 -m pytest scripts/test_check_no_cloud_llm.py -q

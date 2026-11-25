@@ -1,0 +1,22 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 0,
+  "panels": [
+    {"id": 1, "title": "Ingestion throughput", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "rate(photonicops_ingestion_frames_total[1m])", "refId": "A"}]},
+    {"id": 2, "title": "DSP queue depth", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "photonicops_ingestion_job_queue_depth", "refId": "A"}]},
+    {"id": 3, "title": "Ring occupancy", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "targets": [{"expr": "photonicops_ingestion_ring_occupancy", "refId": "A"}]},
+    {"id": 4, "title": "DSP p95 processing", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "targets": [{"expr": "histogram_quantile(0.95, rate(photonicops_dsp_process_seconds_bucket[1m]))", "refId": "A"}]},
+    {"id": 5, "title": "Triage p95 latency", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}, "targets": [{"expr": "histogram_quantile(0.95, rate(photonicops_triage_evaluate_seconds_bucket[1m]))", "refId": "A"}]},
+    {"id": 6, "title": "Triage outcomes", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}, "targets": [{"expr": "rate(photonicops_triage_outcomes_total[5m])", "legendFormat": "{{status}}", "refId": "A"}]}
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["photonicops", "phase-4b"],
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "title": "PhotonicOps Operations",
+  "uid": "photonicops-operations",
+  "version": 1
+}
